@@ -76,6 +76,8 @@ Do not implement any complex logic yet.
 ```
 
 ### Step 1.3 — Create SwiftData models
+**Status:** [x] Done
+
 **Objective:** Define local data objects.
 
 **Models to create:**
@@ -669,4 +671,3 @@ The MVP is complete when:
 # Source basis
 
 This phased plan is derived from the uploaded research blueprint and integration report, simplified into a Codex-friendly build order.
-

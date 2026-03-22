@@ -12,7 +12,10 @@ import SwiftData
 struct Meeting_SummarizerApp: App {
     var sharedModelContainer: ModelContainer = {
         let schema = Schema([
-            Item.self,
+            Meeting.self,
+            ActionItem.self,
+            DecisionItem.self,
+            OpenQuestionItem.self,
         ])
         let modelConfiguration = ModelConfiguration(schema: schema, isStoredInMemoryOnly: false)
 
