@@ -20,6 +20,9 @@ struct ContentView: View {
                     Label("History", systemImage: "clock")
                 }
         }
+        .tint(AppTheme.accentStrong)
+        .toolbarColorScheme(.dark, for: .tabBar, .navigationBar)
+        .appScreenBackground()
     }
 }
 

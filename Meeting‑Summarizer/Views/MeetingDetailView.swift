@@ -4,24 +4,48 @@ struct MeetingDetailView: View {
     let meetingTitle: String
 
     var body: some View {
-        List {
-            Section("Summary") {
-                Text("Meeting summary will appear here after processing.")
-            }
+        ScrollView {
+            VStack(alignment: .leading, spacing: 16) {
+                Text(meetingTitle)
+                    .font(.largeTitle)
+                    .fontWeight(.bold)
+                    .themeTitle()
 
-            Section("Action Items") {
-                Text("No action items yet.")
-            }
+                detailSection(
+                    title: "Summary",
+                    body: "Meeting summary will appear here after processing."
+                )
 
-            Section("Decisions") {
-                Text("No decisions yet.")
-            }
+                detailSection(
+                    title: "Action Items",
+                    body: "No action items yet."
+                )
 
-            Section("Transcript") {
-                Text("Transcript content will be shown here.")
+                detailSection(
+                    title: "Decisions",
+                    body: "No decisions yet."
+                )
+
+                detailSection(
+                    title: "Transcript",
+                    body: "Transcript content will be shown here."
+                )
             }
+            .padding(AppTheme.contentPadding)
         }
-        .navigationTitle(meetingTitle)
+        .appScreenBackground()
+        .navigationBarTitleDisplayMode(.inline)
+    }
+
+    private func detailSection(title: String, body: String) -> some View {
+        VStack(alignment: .leading, spacing: 8) {
+            Text(title)
+                .font(.headline)
+                .themeTitle()
+            Text(body)
+                .themeSecondaryText()
+        }
+        .liquidGlassCard()
     }
 }
 

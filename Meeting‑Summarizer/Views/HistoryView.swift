@@ -9,12 +9,42 @@ struct HistoryView: View {
 
     var body: some View {
         NavigationStack {
-            List(placeholderMeetings, id: \.self) { meetingTitle in
-                NavigationLink(meetingTitle) {
-                    MeetingDetailView(meetingTitle: meetingTitle)
+            ScrollView {
+                VStack(alignment: .leading, spacing: 16) {
+                    Text("History")
+                        .font(.largeTitle)
+                        .fontWeight(.bold)
+                        .themeTitle()
+                        .frame(maxWidth: .infinity, alignment: .leading)
+
+                    ForEach(placeholderMeetings, id: \.self) { meetingTitle in
+                        NavigationLink {
+                            MeetingDetailView(meetingTitle: meetingTitle)
+                        } label: {
+                            HStack(alignment: .top) {
+                                VStack(alignment: .leading, spacing: 6) {
+                                    Text(meetingTitle)
+                                        .font(.headline)
+                                        .themeTitle()
+                                    Text("Placeholder transcript and summary preview")
+                                        .font(.subheadline)
+                                        .themeSecondaryText()
+                                }
+
+                                Spacer()
+
+                                Image(systemName: "chevron.right")
+                                    .foregroundStyle(AppTheme.secondaryText)
+                            }
+                        }
+                        .buttonStyle(.plain)
+                        .liquidGlassCard()
+                    }
                 }
+                .padding(AppTheme.contentPadding)
             }
-            .navigationTitle("History")
+            .appScreenBackground()
+            .navigationBarTitleDisplayMode(.inline)
         }
     }
 }
