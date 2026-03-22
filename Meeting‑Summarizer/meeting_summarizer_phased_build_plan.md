@@ -131,6 +131,8 @@ Keep the models simple and ready for MVP use.
 ```
 
 ### Step 1.4 — Create app navigation shell
+**Status:** [x] Done
+
 **Objective:** Build the base user flow.
 
 **Screens to add:**

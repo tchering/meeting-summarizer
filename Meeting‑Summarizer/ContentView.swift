@@ -9,17 +9,17 @@ import SwiftUI
 
 struct ContentView: View {
     var body: some View {
-        VStack(spacing: 12) {
-            Image(systemName: "waveform.and.mic")
-                .font(.system(size: 44))
-                .foregroundStyle(.tint)
-            Text("Meeting Summarizer")
-                .font(.title2)
-                .fontWeight(.semibold)
-            Text("Phase 1 foundation is in progress.")
-                .foregroundStyle(.secondary)
+        TabView {
+            HomeView()
+                .tabItem {
+                    Label("Home", systemImage: "house")
+                }
+
+            HistoryView()
+                .tabItem {
+                    Label("History", systemImage: "clock")
+                }
         }
-        .padding()
     }
 }
 
