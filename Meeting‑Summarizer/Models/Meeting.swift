@@ -50,3 +50,15 @@ final class Meeting {
         self.openQuestions = openQuestions
     }
 }
+
+extension Meeting {
+    var processingStatus: MeetingProcessingStatus {
+        get {
+            MeetingProcessingStatus(rawValue: status) ?? .recorded
+        }
+        set {
+            status = newValue.rawValue
+            updatedAt = .now
+        }
+    }
+}

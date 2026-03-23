@@ -34,8 +34,24 @@ struct HistoryView: View {
 
                                 Spacer()
 
-                                Image(systemName: "chevron.right")
-                                    .foregroundStyle(AppTheme.secondaryText)
+                                VStack(alignment: .trailing, spacing: 10) {
+                                    Text(meeting.processingStatus.displayTitle)
+                                        .font(.caption.weight(.semibold))
+                                        .padding(.horizontal, 10)
+                                        .padding(.vertical, 6)
+                                        .background(
+                                            Capsule(style: .continuous)
+                                                .fill(meeting.processingStatus.accentColor.opacity(0.18))
+                                        )
+                                        .overlay(
+                                            Capsule(style: .continuous)
+                                                .stroke(meeting.processingStatus.accentColor.opacity(0.35), lineWidth: 1)
+                                        )
+                                        .foregroundStyle(meeting.processingStatus.accentColor)
+
+                                    Image(systemName: "chevron.right")
+                                        .foregroundStyle(AppTheme.secondaryText)
+                                }
                             }
                         }
                         .buttonStyle(.plain)

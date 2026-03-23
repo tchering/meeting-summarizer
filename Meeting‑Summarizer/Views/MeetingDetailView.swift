@@ -12,6 +12,28 @@ struct MeetingDetailView: View {
                     .fontWeight(.bold)
                     .themeTitle()
 
+                VStack(alignment: .leading, spacing: 10) {
+                    Text("Status")
+                        .font(.headline)
+                        .themeTitle()
+                    Text(meeting.processingStatus.displayTitle)
+                        .font(.subheadline.weight(.semibold))
+                        .padding(.horizontal, 12)
+                        .padding(.vertical, 8)
+                        .background(
+                            Capsule(style: .continuous)
+                                .fill(meeting.processingStatus.accentColor.opacity(0.18))
+                        )
+                        .overlay(
+                            Capsule(style: .continuous)
+                                .stroke(meeting.processingStatus.accentColor.opacity(0.35), lineWidth: 1)
+                        )
+                        .foregroundStyle(meeting.processingStatus.accentColor)
+                    Text(meeting.processingStatus.detailMessage)
+                        .themeSecondaryText()
+                }
+                .liquidGlassCard()
+
                 detailSection(
                     title: "Summary",
                     body: meeting.summary

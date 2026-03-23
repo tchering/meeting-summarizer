@@ -325,6 +325,8 @@ Integrate it with RecordViewModel.
 ```
 
 ### Step 3.3 — Add processing state flow
+**Status:** [x] Done
+
 **Objective:** Show what is happening after upload.
 
 **States:**

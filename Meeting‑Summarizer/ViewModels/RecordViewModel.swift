@@ -18,6 +18,7 @@ final class RecordViewModel {
     private let uploadService: UploadService
     private var recordingTimerTask: Task<Void, Never>?
     private var modelContext: ModelContext?
+    private var activeMeeting: Meeting?
 
     init() {
         self.permissionService = MicrophonePermissionService()
@@ -66,11 +67,24 @@ final class RecordViewModel {
             return
         }
 
+        updateMeetingStatus(.uploading)
+
         await uploadService.uploadAudioFile(
             at: savedRecordingURL,
             fields: ["meeting_title": defaultMeetingTitle(for: Date())]
         )
         uploadState = uploadService.state
+
+        switch uploadState {
+        case .idle:
+            break
+        case .uploading:
+            updateMeetingStatus(.uploading)
+        case .success:
+            updateMeetingStatus(.processing)
+        case .failure:
+            updateMeetingStatus(.failed)
+        }
     }
 
     func toggleRecording() {
@@ -157,7 +171,7 @@ final class RecordViewModel {
             title: defaultMeetingTitle(for: createdAt),
             createdAt: createdAt,
             updatedAt: createdAt,
-            status: "recorded",
+            status: MeetingProcessingStatus.recorded.rawValue,
             transcript: "",
             summary: "Audio recorded locally. Transcription and summarization will happen in a later phase.",
             audioFilePath: recordingURL.path,
@@ -168,9 +182,24 @@ final class RecordViewModel {
 
         do {
             try modelContext.save()
+            activeMeeting = meeting
         } catch {
             modelContext.delete(meeting)
             errorMessage = "Recording was saved, but the meeting entry could not be created."
+        }
+    }
+
+    private func updateMeetingStatus(_ status: MeetingProcessingStatus) {
+        guard let modelContext, let activeMeeting else {
+            return
+        }
+
+        activeMeeting.processingStatus = status
+
+        do {
+            try modelContext.save()
+        } catch {
+            errorMessage = "The meeting status could not be updated."
         }
     }
 
