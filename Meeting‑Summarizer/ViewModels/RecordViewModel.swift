@@ -1,6 +1,7 @@
 import Foundation
 import Observation
 import SwiftData
+import UniformTypeIdentifiers
 
 @MainActor
 @Observable
@@ -10,11 +11,13 @@ final class RecordViewModel {
     private(set) var recordingState: AudioRecordingState = .idle
     private(set) var elapsedTime: TimeInterval = 0
     private(set) var savedRecordingURL: URL?
+    private(set) var importedAudioURL: URL?
     private(set) var errorMessage: String?
     private(set) var uploadState: UploadState = .idle
     private(set) var pollingState: MeetingPollingState = .idle
 
     private let permissionService: MicrophonePermissionServicing
+    private let audioFileImportService: AudioFileImportServicing
     private let recordingService: AudioRecordingService
     private let uploadService: UploadService
     private let pollingService: MeetingPollingService
@@ -25,6 +28,7 @@ final class RecordViewModel {
 
     init() {
         self.permissionService = MicrophonePermissionService()
+        self.audioFileImportService = AudioFileImportService()
         self.recordingService = AudioRecordingService()
         self.uploadService = UploadService()
         self.pollingService = MeetingPollingService()
@@ -37,12 +41,14 @@ final class RecordViewModel {
 
     init(
         permissionService: MicrophonePermissionServicing,
+        audioFileImportService: AudioFileImportServicing,
         recordingService: AudioRecordingService,
         uploadService: UploadService,
         pollingService: MeetingPollingService,
         meetingSummaryPersistenceService: MeetingSummaryPersistenceService
     ) {
         self.permissionService = permissionService
+        self.audioFileImportService = audioFileImportService
         self.recordingService = recordingService
         self.uploadService = uploadService
         self.pollingService = pollingService
@@ -72,6 +78,28 @@ final class RecordViewModel {
         permissionStatus = await permissionService.requestPermission()
         isRequestingPermission = false
         await prepareRecordingSessionIfNeeded()
+    }
+
+    var supportedImportContentTypes: [UTType] {
+        audioFileImportService.supportedContentTypes
+    }
+
+    func importAudioFile(from sourceURL: URL) async {
+        do {
+            let importedURL = try audioFileImportService.importAudioFile(from: sourceURL)
+            importedAudioURL = importedURL
+            savedRecordingURL = nil
+            activeMeeting = nil
+            uploadState = .idle
+            pollingState = .idle
+            errorMessage = nil
+        } catch {
+            errorMessage = error.localizedDescription
+        }
+    }
+
+    func setErrorMessage(_ message: String?) {
+        errorMessage = message
     }
 
     func uploadRecordedAudio() async {
@@ -118,6 +146,7 @@ final class RecordViewModel {
     private func startRecording() async {
         recordingState = .starting
         errorMessage = nil
+        importedAudioURL = nil
         savedRecordingURL = nil
 
         do {

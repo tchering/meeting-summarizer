@@ -7,6 +7,7 @@ struct RecordView: View {
     @Environment(\.modelContext) private var modelContext
     @Environment(\.openURL) private var openURL
     @State private var viewModel = RecordViewModel()
+    @State private var isShowingFileImporter = false
 
     var body: some View {
         ScrollView {
@@ -18,6 +19,10 @@ struct RecordView: View {
                 if let savedRecordingURL = viewModel.savedRecordingURL {
                     savedConfirmationCard(url: savedRecordingURL)
                     uploadCard
+                }
+
+                if let importedAudioURL = viewModel.importedAudioURL {
+                    importedFileCard(url: importedAudioURL)
                 }
 
                 if viewModel.permissionStatus == .denied {
@@ -35,6 +40,19 @@ struct RecordView: View {
         .task {
             viewModel.attachModelContext(modelContext)
             await viewModel.refreshPermissionStatus()
+        }
+        .fileImporter(
+            isPresented: $isShowingFileImporter,
+            allowedContentTypes: viewModel.supportedImportContentTypes
+        ) { result in
+            Task {
+                switch result {
+                case .success(let selectedURL):
+                    await viewModel.importAudioFile(from: selectedURL)
+                case .failure(let error):
+                    viewModel.setErrorMessage(error.localizedDescription)
+                }
+            }
         }
     }
 
@@ -128,6 +146,8 @@ struct RecordView: View {
             case .denied:
                 settingsButton
             }
+
+            importButton
         }
         .liquidGlassCard()
     }
@@ -147,6 +167,31 @@ struct RecordView: View {
                 .themeTitle()
 
             Text("Saved locally and ready for the next workflow step.")
+                .themeSecondaryText()
+
+            Text(url.path)
+                .font(.footnote)
+                .textSelection(.enabled)
+                .themeMutedText()
+        }
+        .liquidGlassCard()
+    }
+
+    private func importedFileCard(url: URL) -> some View {
+        VStack(alignment: .leading, spacing: 12) {
+            HStack(spacing: 10) {
+                Image(systemName: "waveform.badge.plus")
+                    .foregroundStyle(AppTheme.accent)
+                Text("Imported Audio File")
+                    .font(.headline)
+                    .themeTitle()
+            }
+
+            Text(url.lastPathComponent)
+                .font(.headline)
+                .themeTitle()
+
+            Text("The file has been copied into the app sandbox and is ready for the upload workflow in the next step.")
                 .themeSecondaryText()
 
             Text(url.path)
@@ -269,6 +314,18 @@ struct RecordView: View {
             Label("Open Settings", systemImage: "gearshape")
                 .frame(maxWidth: .infinity)
         }
+        .liquidGlassButtonStyle()
+    }
+
+    private var importButton: some View {
+        Button {
+            isShowingFileImporter = true
+        } label: {
+            Label("Import Audio File", systemImage: "square.and.arrow.down")
+                .frame(maxWidth: .infinity)
+        }
+        .disabled(isRecordingActive)
+        .opacity(isRecordingActive ? 0.55 : 1)
         .liquidGlassButtonStyle()
     }
 

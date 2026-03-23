@@ -451,6 +451,8 @@ Persist the edits to SwiftData.
 Goal: Support existing meeting files, not only live recording.
 
 ### Step 5.1 — Add file picker
+**Status:** [x] Done
+
 **Objective:** Let users choose audio files from device.
 
 **Deliverable:**
