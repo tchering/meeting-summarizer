@@ -198,6 +198,8 @@ Do not start recording yet.
 ```
 
 ### Step 2.2 — Add recording service
+**Status:** [x] Done
+
 **Objective:** Record audio to local file.
 
 **Create:**
