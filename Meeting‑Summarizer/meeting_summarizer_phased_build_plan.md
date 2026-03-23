@@ -385,6 +385,8 @@ Keep model names clean and easy to use from the view model.
 ```
 
 ### Step 4.2 — Map backend JSON into SwiftData
+**Status:** [x] Done
+
 **Objective:** Persist AI output locally.
 
 **Deliverable:**

@@ -18,6 +18,7 @@ final class RecordViewModel {
     private let recordingService: AudioRecordingService
     private let uploadService: UploadService
     private let pollingService: MeetingPollingService
+    private let meetingSummaryPersistenceService: MeetingSummaryPersistenceService
     private var recordingTimerTask: Task<Void, Never>?
     private var modelContext: ModelContext?
     private var activeMeeting: Meeting?
@@ -27,6 +28,7 @@ final class RecordViewModel {
         self.recordingService = AudioRecordingService()
         self.uploadService = UploadService()
         self.pollingService = MeetingPollingService()
+        self.meetingSummaryPersistenceService = MeetingSummaryPersistenceService()
         self.permissionStatus = permissionService.currentStatus()
         self.recordingState = recordingService.recordingState
         self.uploadState = uploadService.state
@@ -37,12 +39,14 @@ final class RecordViewModel {
         permissionService: MicrophonePermissionServicing,
         recordingService: AudioRecordingService,
         uploadService: UploadService,
-        pollingService: MeetingPollingService
+        pollingService: MeetingPollingService,
+        meetingSummaryPersistenceService: MeetingSummaryPersistenceService
     ) {
         self.permissionService = permissionService
         self.recordingService = recordingService
         self.uploadService = uploadService
         self.pollingService = pollingService
+        self.meetingSummaryPersistenceService = meetingSummaryPersistenceService
         self.permissionStatus = permissionService.currentStatus()
         self.recordingState = recordingService.recordingState
         self.uploadState = uploadService.state
@@ -247,46 +251,12 @@ final class RecordViewModel {
             return
         }
 
-        activeMeeting.transcript = result.transcript ?? activeMeeting.transcript
-        activeMeeting.summary = result.summary ?? activeMeeting.summary
-        activeMeeting.actionItems.removeAll()
-        activeMeeting.decisions.removeAll()
-        activeMeeting.openQuestions.removeAll()
-
-        activeMeeting.actionItems = result.actionItems.map { item in
-            ActionItem(
-                task: item.task,
-                owner: item.owner ?? "",
-                deadlineText: item.deadlineText ?? "",
-                confidence: item.confidence ?? 0,
-                sourceSegment: item.sourceSegment ?? "",
-                isCompleted: false,
-                meeting: activeMeeting
-            )
-        }
-
-        activeMeeting.decisions = result.decisions.map { item in
-            DecisionItem(
-                text: item.text,
-                confidence: item.confidence ?? 0,
-                sourceSegment: item.sourceSegment ?? "",
-                meeting: activeMeeting
-            )
-        }
-
-        activeMeeting.openQuestions = result.openQuestions.map { item in
-            OpenQuestionItem(
-                text: item.text,
-                confidence: item.confidence ?? 0,
-                sourceSegment: item.sourceSegment ?? "",
-                meeting: activeMeeting
-            )
-        }
-
-        activeMeeting.processingStatus = result.status
-
         do {
-            try modelContext.save()
+            try meetingSummaryPersistenceService.apply(
+                result,
+                to: activeMeeting,
+                in: modelContext
+            )
         } catch {
             errorMessage = "The processed meeting result could not be saved locally."
         }

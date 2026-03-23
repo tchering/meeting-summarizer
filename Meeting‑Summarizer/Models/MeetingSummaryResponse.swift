@@ -19,6 +19,24 @@ struct MeetingSummaryResponse: Decodable, Sendable {
         case speakers
     }
 
+    init(
+        meetingTitle: String,
+        summary: String,
+        keyDecisions: [MeetingSummaryDecision],
+        actionItems: [MeetingSummaryActionItem],
+        risks: [MeetingSummaryRisk],
+        openQuestions: [MeetingSummaryOpenQuestion],
+        speakers: [MeetingSummarySpeaker]
+    ) {
+        self.meetingTitle = meetingTitle
+        self.summary = summary
+        self.keyDecisions = keyDecisions
+        self.actionItems = actionItems
+        self.risks = risks
+        self.openQuestions = openQuestions
+        self.speakers = speakers
+    }
+
     init(from decoder: Decoder) throws {
         let container = try decoder.container(keyedBy: CodingKeys.self)
         self.meetingTitle = try container.decodeIfPresent(String.self, forKey: .meetingTitle) ?? ""
@@ -35,8 +53,8 @@ struct MeetingSummaryDecision: Decodable, Sendable, Identifiable {
     let id = UUID()
     let text: String
 
-    enum CodingKeys: String, CodingKey {
-        case text
+    init(text: String) {
+        self.text = text
     }
 }
 
@@ -46,10 +64,10 @@ struct MeetingSummaryActionItem: Decodable, Sendable, Identifiable {
     let owner: String?
     let deadline: String?
 
-    enum CodingKeys: String, CodingKey {
-        case task
-        case owner
-        case deadline
+    init(task: String, owner: String?, deadline: String?) {
+        self.task = task
+        self.owner = owner
+        self.deadline = deadline
     }
 }
 
@@ -57,8 +75,8 @@ struct MeetingSummaryRisk: Decodable, Sendable, Identifiable {
     let id = UUID()
     let text: String
 
-    enum CodingKeys: String, CodingKey {
-        case text
+    init(text: String) {
+        self.text = text
     }
 }
 
@@ -66,8 +84,8 @@ struct MeetingSummaryOpenQuestion: Decodable, Sendable, Identifiable {
     let id = UUID()
     let text: String
 
-    enum CodingKeys: String, CodingKey {
-        case text
+    init(text: String) {
+        self.text = text
     }
 }
 
@@ -76,14 +94,19 @@ struct MeetingSummarySpeaker: Decodable, Sendable, Identifiable {
     let name: String
     let highlights: [String]
 
-    enum CodingKeys: String, CodingKey {
-        case name
-        case highlights
+    init(name: String, highlights: [String]) {
+        self.name = name
+        self.highlights = highlights
     }
 
     init(from decoder: Decoder) throws {
         let container = try decoder.container(keyedBy: CodingKeys.self)
         self.name = try container.decodeIfPresent(String.self, forKey: .name) ?? "Unknown"
         self.highlights = try container.decodeIfPresent([String].self, forKey: .highlights) ?? []
+    }
+
+    enum CodingKeys: String, CodingKey {
+        case name
+        case highlights
     }
 }
