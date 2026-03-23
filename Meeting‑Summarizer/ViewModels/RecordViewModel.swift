@@ -11,27 +11,34 @@ final class RecordViewModel {
     private(set) var elapsedTime: TimeInterval = 0
     private(set) var savedRecordingURL: URL?
     private(set) var errorMessage: String?
+    private(set) var uploadState: UploadState = .idle
 
     private let permissionService: MicrophonePermissionServicing
     private let recordingService: AudioRecordingService
+    private let uploadService: UploadService
     private var recordingTimerTask: Task<Void, Never>?
     private var modelContext: ModelContext?
 
     init() {
         self.permissionService = MicrophonePermissionService()
         self.recordingService = AudioRecordingService()
+        self.uploadService = UploadService()
         self.permissionStatus = permissionService.currentStatus()
         self.recordingState = recordingService.recordingState
+        self.uploadState = uploadService.state
     }
 
     init(
         permissionService: MicrophonePermissionServicing,
-        recordingService: AudioRecordingService
+        recordingService: AudioRecordingService,
+        uploadService: UploadService
     ) {
         self.permissionService = permissionService
         self.recordingService = recordingService
+        self.uploadService = uploadService
         self.permissionStatus = permissionService.currentStatus()
         self.recordingState = recordingService.recordingState
+        self.uploadState = uploadService.state
     }
 
     func refreshPermissionStatus() {
@@ -51,6 +58,19 @@ final class RecordViewModel {
         isRequestingPermission = true
         permissionStatus = await permissionService.requestPermission()
         isRequestingPermission = false
+    }
+
+    func uploadRecordedAudio() async {
+        guard let savedRecordingURL else {
+            uploadState = .failure("No recorded audio file is available to upload.")
+            return
+        }
+
+        await uploadService.uploadAudioFile(
+            at: savedRecordingURL,
+            fields: ["meeting_title": defaultMeetingTitle(for: Date())]
+        )
+        uploadState = uploadService.state
     }
 
     func toggleRecording() {
@@ -110,12 +130,14 @@ final class RecordViewModel {
     private func syncRecordingState() {
         recordingState = recordingService.recordingState
         elapsedTime = recordingService.elapsedTime
+        uploadState = uploadService.state
 
         switch recordingState {
         case .idle:
             break
         case .recording:
             errorMessage = nil
+            uploadState = .idle
         case .finished(let url):
             savedRecordingURL = url
             errorMessage = nil

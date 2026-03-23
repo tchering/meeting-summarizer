@@ -306,6 +306,8 @@ Make it reusable for future endpoints.
 ```
 
 ### Step 3.2 — Create upload service
+**Status:** [x] Done
+
 **Objective:** Upload recorded audio file.
 
 **Create:**

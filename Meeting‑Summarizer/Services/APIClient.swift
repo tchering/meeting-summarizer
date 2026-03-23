@@ -1,6 +1,6 @@
 import Foundation
 
-struct APIEndpoint {
+struct APIEndpoint: Sendable {
     let path: String
     let method: HTTPMethod
     var queryItems: [URLQueryItem] = []
@@ -19,7 +19,7 @@ struct APIEndpoint {
     }
 }
 
-enum HTTPMethod: String {
+enum HTTPMethod: String, Sendable {
     case get = "GET"
     case post = "POST"
     case put = "PUT"
@@ -27,21 +27,22 @@ enum HTTPMethod: String {
     case delete = "DELETE"
 }
 
-struct UploadFile {
+struct UploadFile: Sendable {
     let data: Data
     let fieldName: String
     let fileName: String
     let mimeType: String
 }
 
+@MainActor
 protocol APIClienting {
-    func post<RequestBody: Encodable, ResponseBody: Decodable>(
+    func post<RequestBody: Encodable & Sendable, ResponseBody: Decodable & Sendable>(
         _ endpoint: APIEndpoint,
         body: RequestBody,
         responseType: ResponseBody.Type
     ) async throws -> ResponseBody
 
-    func upload<ResponseBody: Decodable>(
+    func upload<ResponseBody: Decodable & Sendable>(
         _ endpoint: APIEndpoint,
         file: UploadFile,
         fields: [String: String],
@@ -49,6 +50,7 @@ protocol APIClienting {
     ) async throws -> ResponseBody
 }
 
+@MainActor
 struct APIClient: APIClienting {
     let baseURL: URL
     private let session: URLSession
@@ -67,7 +69,7 @@ struct APIClient: APIClienting {
         self.jsonDecoder = jsonDecoder
     }
 
-    func post<RequestBody: Encodable, ResponseBody: Decodable>(
+    func post<RequestBody: Encodable & Sendable, ResponseBody: Decodable & Sendable>(
         _ endpoint: APIEndpoint,
         body: RequestBody,
         responseType: ResponseBody.Type
@@ -79,7 +81,7 @@ struct APIClient: APIClienting {
         return try await send(request, responseType: responseType)
     }
 
-    func upload<ResponseBody: Decodable>(
+    func upload<ResponseBody: Decodable & Sendable>(
         _ endpoint: APIEndpoint,
         file: UploadFile,
         fields: [String: String] = [:],
@@ -93,7 +95,7 @@ struct APIClient: APIClienting {
         return try await send(request, responseType: responseType)
     }
 
-    private func makeRequest(for endpoint: APIEndpoint) throws -> URLRequest {
+    func makeRequest(for endpoint: APIEndpoint) throws -> URLRequest {
         guard var components = URLComponents(url: baseURL.appending(path: endpoint.path), resolvingAgainstBaseURL: false) else {
             throw APIClientError.invalidURL
         }
@@ -117,7 +119,7 @@ struct APIClient: APIClienting {
         return request
     }
 
-    private func send<ResponseBody: Decodable>(
+    func send<ResponseBody: Decodable & Sendable>(
         _ request: URLRequest,
         responseType: ResponseBody.Type
     ) async throws -> ResponseBody {
@@ -131,7 +133,7 @@ struct APIClient: APIClienting {
         }
     }
 
-    private func validate(response: URLResponse, data: Data) throws -> HTTPURLResponse {
+    func validate(response: URLResponse, data: Data) throws -> HTTPURLResponse {
         guard let httpResponse = response as? HTTPURLResponse else {
             throw APIClientError.invalidResponse
         }
@@ -144,7 +146,7 @@ struct APIClient: APIClienting {
         return httpResponse
     }
 
-    private func makeMultipartBody(file: UploadFile, fields: [String: String], boundary: String) -> Data {
+    func makeMultipartBody(file: UploadFile, fields: [String: String], boundary: String) -> Data {
         var body = Data()
 
         for (name, value) in fields.sorted(by: { $0.key < $1.key }) {

@@ -17,6 +17,7 @@ struct RecordView: View {
 
                 if let savedRecordingURL = viewModel.savedRecordingURL {
                     savedConfirmationCard(url: savedRecordingURL)
+                    uploadCard
                 }
 
                 if viewModel.permissionStatus == .denied {
@@ -168,6 +169,52 @@ struct RecordView: View {
         .liquidGlassCard()
     }
 
+    private var uploadCard: some View {
+        VStack(alignment: .leading, spacing: 12) {
+            HStack {
+                Text("Backend Upload")
+                    .font(.headline)
+                    .themeTitle()
+                Spacer()
+                Text(uploadStatusLabel)
+                    .font(.caption.weight(.semibold))
+                    .themeMutedText()
+            }
+
+            switch viewModel.uploadState {
+            case .idle:
+                Text("Upload the saved recording to your backend when the endpoint is configured.")
+                    .themeSecondaryText()
+            case .uploading(let progress):
+                VStack(alignment: .leading, spacing: 8) {
+                    ProgressView(value: progress, total: 1)
+                        .tint(AppTheme.accentStrong)
+                    Text("Uploading \(Int(progress * 100))%")
+                        .themeSecondaryText()
+                }
+            case .success(let message):
+                Text(message ?? "Upload completed successfully.")
+                    .themeSecondaryText()
+            case .failure(let message):
+                Text(message)
+                    .themeSecondaryText()
+            }
+
+            Button {
+                Task {
+                    await viewModel.uploadRecordedAudio()
+                }
+            } label: {
+                Label("Upload Recording", systemImage: "arrow.up.circle")
+                    .frame(maxWidth: .infinity)
+            }
+            .disabled(viewModel.savedRecordingURL == nil || isUploadInFlight)
+            .opacity(isUploadInFlight ? 0.55 : 1)
+            .liquidGlassButtonStyle()
+        }
+        .liquidGlassCard()
+    }
+
     private func errorCard(message: String) -> some View {
         VStack(alignment: .leading, spacing: 10) {
             Text("Recording Error")
@@ -311,6 +358,26 @@ struct RecordView: View {
         case .denied:
             return Color.orange
         }
+    }
+
+    private var uploadStatusLabel: String {
+        switch viewModel.uploadState {
+        case .idle:
+            return "Idle"
+        case .uploading:
+            return "Uploading"
+        case .success:
+            return "Uploaded"
+        case .failure:
+            return "Failed"
+        }
+    }
+
+    private var isUploadInFlight: Bool {
+        if case .uploading = viewModel.uploadState {
+            return true
+        }
+        return false
     }
 
     private func openSettings() {
