@@ -1,40 +1,64 @@
 import SwiftUI
+import SwiftData
 
 struct MeetingDetailView: View {
-    let meetingTitle: String
+    let meeting: Meeting
 
     var body: some View {
         ScrollView {
             VStack(alignment: .leading, spacing: 16) {
-                Text(meetingTitle)
+                Text(meeting.title)
                     .font(.largeTitle)
                     .fontWeight(.bold)
                     .themeTitle()
 
                 detailSection(
                     title: "Summary",
-                    body: "Meeting summary will appear here after processing."
+                    body: meeting.summary
                 )
 
                 detailSection(
                     title: "Action Items",
-                    body: "No action items yet."
+                    body: actionItemsText
                 )
 
                 detailSection(
                     title: "Decisions",
-                    body: "No decisions yet."
+                    body: decisionsText
+                )
+
+                detailSection(
+                    title: "Open Questions",
+                    body: openQuestionsText
                 )
 
                 detailSection(
                     title: "Transcript",
-                    body: "Transcript content will be shown here."
+                    body: meeting.transcript
                 )
             }
             .padding(AppTheme.contentPadding)
         }
         .appScreenBackground()
         .navigationBarTitleDisplayMode(.inline)
+    }
+
+    private var actionItemsText: String {
+        let lines = meeting.actionItems.map { item in
+            "\(item.task) - \(item.owner) (\(item.deadlineText))"
+        }
+
+        return lines.isEmpty ? "No action items yet." : lines.joined(separator: "\n")
+    }
+
+    private var decisionsText: String {
+        let lines = meeting.decisions.map(\.text)
+        return lines.isEmpty ? "No decisions yet." : lines.joined(separator: "\n")
+    }
+
+    private var openQuestionsText: String {
+        let lines = meeting.openQuestions.map(\.text)
+        return lines.isEmpty ? "No open questions yet." : lines.joined(separator: "\n")
     }
 
     private func detailSection(title: String, body: String) -> some View {
@@ -51,6 +75,7 @@ struct MeetingDetailView: View {
 
 #Preview {
     NavigationStack {
-        MeetingDetailView(meetingTitle: "Weekly Product Sync")
+        MeetingDetailView(meeting: SampleMeetingData.previewMeeting)
     }
+    .modelContainer(SampleMeetingData.previewContainer)
 }

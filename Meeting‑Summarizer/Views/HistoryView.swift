@@ -1,11 +1,8 @@
 import SwiftUI
+import SwiftData
 
 struct HistoryView: View {
-    private let placeholderMeetings = [
-        "Weekly Product Sync",
-        "Design Review",
-        "Client Check-In"
-    ]
+    @Query(sort: \Meeting.createdAt, order: .reverse) private var meetings: [Meeting]
 
     var body: some View {
         NavigationStack {
@@ -17,18 +14,22 @@ struct HistoryView: View {
                         .themeTitle()
                         .frame(maxWidth: .infinity, alignment: .leading)
 
-                    ForEach(placeholderMeetings, id: \.self) { meetingTitle in
+                    ForEach(meetings) { meeting in
                         NavigationLink {
-                            MeetingDetailView(meetingTitle: meetingTitle)
+                            MeetingDetailView(meeting: meeting)
                         } label: {
-                            HStack(alignment: .top) {
+                            HStack(alignment: .top, spacing: 12) {
                                 VStack(alignment: .leading, spacing: 6) {
-                                    Text(meetingTitle)
+                                    Text(meeting.title)
                                         .font(.headline)
                                         .themeTitle()
-                                    Text("Placeholder transcript and summary preview")
+                                    Text(meeting.summary)
                                         .font(.subheadline)
+                                        .lineLimit(2)
                                         .themeSecondaryText()
+                                    Text(meeting.createdAt.formatted(date: .abbreviated, time: .omitted))
+                                        .font(.caption)
+                                        .foregroundStyle(AppTheme.accent)
                                 }
 
                                 Spacer()
@@ -51,4 +52,5 @@ struct HistoryView: View {
 
 #Preview {
     HistoryView()
+        .modelContainer(SampleMeetingData.previewContainer)
 }

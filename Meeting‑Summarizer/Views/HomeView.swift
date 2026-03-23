@@ -1,6 +1,9 @@
 import SwiftUI
+import SwiftData
 
 struct HomeView: View {
+    @Query(sort: \Meeting.createdAt, order: .reverse) private var meetings: [Meeting]
+
     var body: some View {
         NavigationStack {
             ScrollView {
@@ -37,20 +40,26 @@ struct HomeView: View {
                         Text("Recent")
                             .font(.headline)
                             .themeTitle()
-                        NavigationLink {
-                            MeetingDetailView(meetingTitle: "Weekly Product Sync")
-                        } label: {
-                            VStack(alignment: .leading, spacing: 6) {
-                                Text("Weekly Product Sync")
-                                    .font(.headline)
-                                    .themeTitle()
-                                Text("Summary and transcript placeholder")
-                                    .font(.subheadline)
-                                    .themeSecondaryText()
+                        if let recentMeeting = meetings.first {
+                            NavigationLink {
+                                MeetingDetailView(meeting: recentMeeting)
+                            } label: {
+                                VStack(alignment: .leading, spacing: 6) {
+                                    Text(recentMeeting.title)
+                                        .font(.headline)
+                                        .themeTitle()
+                                    Text(recentMeeting.summary)
+                                        .font(.subheadline)
+                                        .lineLimit(2)
+                                        .themeSecondaryText()
+                                }
+                                .frame(maxWidth: .infinity, alignment: .leading)
                             }
-                            .frame(maxWidth: .infinity, alignment: .leading)
+                            .buttonStyle(.plain)
+                        } else {
+                            Text("Sample meetings will appear here.")
+                                .themeSecondaryText()
                         }
-                        .buttonStyle(.plain)
                     }
                     .liquidGlassCard()
                 }
@@ -60,14 +69,16 @@ struct HomeView: View {
             .appScreenBackground()
             .toolbar {
                 ToolbarItem(placement: .topBarTrailing) {
-                    NavigationLink {
-                        MeetingDetailView(meetingTitle: "Weekly Product Sync")
-                    } label: {
-                        Image(systemName: "sparkles")
-                            .foregroundStyle(AppTheme.primaryText)
-                            .padding(10)
+                    if let recentMeeting = meetings.first {
+                        NavigationLink {
+                            MeetingDetailView(meeting: recentMeeting)
+                        } label: {
+                            Image(systemName: "sparkles")
+                                .foregroundStyle(AppTheme.primaryText)
+                                .padding(10)
+                        }
+                        .liquidGlassCard()
                     }
-                    .liquidGlassCard()
                 }
             }
             .navigationBarTitleDisplayMode(.inline)
@@ -77,4 +88,5 @@ struct HomeView: View {
 
 #Preview {
     HomeView()
+        .modelContainer(SampleMeetingData.previewContainer)
 }

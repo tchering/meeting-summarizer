@@ -6,8 +6,11 @@
 //
 
 import SwiftUI
+import SwiftData
 
 struct ContentView: View {
+    @Environment(\.modelContext) private var modelContext
+
     var body: some View {
         TabView {
             HomeView()
@@ -23,9 +26,17 @@ struct ContentView: View {
         .tint(AppTheme.accentStrong)
         .toolbarColorScheme(.dark, for: .tabBar, .navigationBar)
         .appScreenBackground()
+        .task {
+            do {
+                try SampleMeetingData.seedIfNeeded(in: modelContext)
+            } catch {
+                assertionFailure("Failed to seed sample meeting data: \(error)")
+            }
+        }
     }
 }
 
 #Preview {
     ContentView()
+        .modelContainer(SampleMeetingData.previewContainer)
 }

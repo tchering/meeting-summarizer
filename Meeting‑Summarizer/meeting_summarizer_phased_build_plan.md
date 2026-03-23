@@ -154,6 +154,8 @@ Do not add AI or recording logic yet.
 ```
 
 ### Step 1.5 — Add sample data and history list
+**Status:** [x] Done
+
 **Objective:** Make the app feel real before backend work.
 
 **Deliverable:**
