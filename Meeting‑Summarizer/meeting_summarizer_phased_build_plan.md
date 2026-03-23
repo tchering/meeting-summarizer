@@ -500,6 +500,8 @@ Allow sharing the meeting summary and action items using the native iOS share sh
 ```
 
 ### Step 6.2 — Export JSON
+**Status:** [x] Done
+
 **Objective:** Make integrations easier later.
 
 **Deliverable:**

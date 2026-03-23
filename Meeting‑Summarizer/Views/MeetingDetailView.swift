@@ -14,6 +14,8 @@ struct MeetingDetailView: View {
     @State private var saveErrorMessage: String?
     @State private var copyConfirmationMessage: String?
     @State private var isShowingShareSheet = false
+    @State private var isShowingExportSheet = false
+    @State private var exportFileURL: URL?
 
     var body: some View {
         ScrollView(showsIndicators: false) {
@@ -45,6 +47,12 @@ struct MeetingDetailView: View {
                     } label: {
                         Image(systemName: "doc.on.doc")
                     }
+
+                    Button {
+                        exportJSON()
+                    } label: {
+                        Image(systemName: "curlybraces")
+                    }
                 }
             }
 
@@ -66,6 +74,11 @@ struct MeetingDetailView: View {
         }
         .sheet(isPresented: $isShowingShareSheet) {
             ActivityShareSheet(activityItems: [shareText])
+        }
+        .sheet(isPresented: $isShowingExportSheet, onDismiss: clearExportState) {
+            if let exportFileURL {
+                ActivityShareSheet(activityItems: [exportFileURL])
+            }
         }
     }
 
@@ -522,6 +535,15 @@ struct MeetingDetailView: View {
         }
     }
 
+    private func exportJSON() {
+        do {
+            exportFileURL = try makeExportFile()
+            isShowingExportSheet = true
+        } catch {
+            saveErrorMessage = "The meeting JSON could not be exported."
+        }
+    }
+
     private var shareText: String {
         var lines: [String] = [meeting.title]
 
@@ -548,6 +570,38 @@ struct MeetingDetailView: View {
         }
 
         return lines.joined(separator: "\n")
+    }
+
+    private func makeExportFile() throws -> URL {
+        let payload = MeetingExportPayload(meeting: meeting)
+        let encoder = JSONEncoder()
+        encoder.outputFormatting = [.prettyPrinted, .sortedKeys]
+        encoder.dateEncodingStrategy = .iso8601
+
+        let data = try encoder.encode(payload)
+        let directory = FileManager.default.temporaryDirectory
+            .appendingPathComponent("MeetingJSONExports", isDirectory: true)
+
+        if !FileManager.default.fileExists(atPath: directory.path) {
+            try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
+        }
+
+        let fileName = sanitizedExportFileName().appending(".json")
+        let fileURL = directory.appendingPathComponent(fileName)
+        try data.write(to: fileURL, options: .atomic)
+        return fileURL
+    }
+
+    private func sanitizedExportFileName() -> String {
+        let rawTitle = meeting.title.trimmingCharacters(in: .whitespacesAndNewlines)
+        let base = rawTitle.isEmpty ? "meeting-export" : rawTitle
+        let invalidCharacters = CharacterSet(charactersIn: "/\\:?%*|\"<>")
+        let sanitized = base.components(separatedBy: invalidCharacters).joined(separator: "-")
+        return sanitized.isEmpty ? "meeting-export" : sanitized
+    }
+
+    private func clearExportState() {
+        exportFileURL = nil
     }
 }
 
