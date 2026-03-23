@@ -426,6 +426,8 @@ Use clean SwiftUI layout and make the screen easy to scan.
 ```
 
 ### Step 4.4 — Add editing before sharing
+**Status:** [x] Done
+
 **Objective:** Human review before sending.
 
 **Features:**

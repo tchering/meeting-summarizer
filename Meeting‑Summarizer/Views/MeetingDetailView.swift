@@ -2,7 +2,15 @@ import SwiftData
 import SwiftUI
 
 struct MeetingDetailView: View {
+    @Environment(\.modelContext) private var modelContext
+
     let meeting: Meeting
+
+    @State private var isEditing = false
+    @State private var draftSummary = ""
+    @State private var actionOwnerDrafts: [UUID: String] = [:]
+    @State private var actionDeadlineDrafts: [UUID: String] = [:]
+    @State private var saveErrorMessage: String?
 
     var body: some View {
         ScrollView(showsIndicators: false) {
@@ -20,13 +28,42 @@ struct MeetingDetailView: View {
         }
         .appScreenBackground()
         .navigationBarTitleDisplayMode(.inline)
+        .toolbar {
+            ToolbarItem(placement: .topBarTrailing) {
+                if isEditing {
+                    Button("Save") {
+                        saveEdits()
+                    }
+                    .fontWeight(.semibold)
+                } else {
+                    Button("Edit") {
+                        beginEditing()
+                    }
+                }
+            }
+        }
+        .task {
+            loadDraftsFromMeeting()
+        }
     }
 
     private var headerCard: some View {
         VStack(alignment: .leading, spacing: 16) {
-            Text(meeting.title)
-                .font(.system(size: 30, weight: .bold, design: .rounded))
-                .themeTitle()
+            HStack(alignment: .top, spacing: 12) {
+                Text(meeting.title)
+                    .font(.system(size: 30, weight: .bold, design: .rounded))
+                    .themeTitle()
+
+                Spacer(minLength: 0)
+
+                if isEditing {
+                    Button("Cancel") {
+                        cancelEditing()
+                    }
+                    .font(.subheadline.weight(.semibold))
+                    .foregroundStyle(AppTheme.accent)
+                }
+            }
 
             Text(meeting.createdAt.formatted(date: .abbreviated, time: .shortened))
                 .font(.subheadline.weight(.medium))
@@ -51,6 +88,12 @@ struct MeetingDetailView: View {
             Text(meeting.processingStatus.detailMessage)
                 .font(.subheadline)
                 .themeSecondaryText()
+
+            if let saveErrorMessage {
+                Text(saveErrorMessage)
+                    .font(.footnote)
+                    .foregroundStyle(Color.orange)
+            }
         }
         .liquidGlassCard()
     }
@@ -61,10 +104,26 @@ struct MeetingDetailView: View {
             icon: "text.alignleft",
             subtitle: "High-level recap"
         ) {
-            Text(nonEmpty(meeting.summary, fallback: "No summary available yet."))
-                .font(.body)
-                .lineSpacing(4)
-                .themeSecondaryText()
+            if isEditing {
+                TextEditor(text: $draftSummary)
+                    .scrollContentBackground(.hidden)
+                    .frame(minHeight: 160)
+                    .padding(12)
+                    .background(
+                        RoundedRectangle(cornerRadius: 18, style: .continuous)
+                            .fill(AppTheme.elevatedSurfaceFill.opacity(0.55))
+                    )
+                    .overlay(
+                        RoundedRectangle(cornerRadius: 18, style: .continuous)
+                            .stroke(AppTheme.surfaceStroke, lineWidth: 1)
+                    )
+                    .themeSecondaryText()
+            } else {
+                Text(nonEmpty(meeting.summary, fallback: "No summary available yet."))
+                    .font(.body)
+                    .lineSpacing(4)
+                    .themeSecondaryText()
+            }
         }
     }
 
@@ -79,10 +138,7 @@ struct MeetingDetailView: View {
             } else {
                 VStack(spacing: 12) {
                     ForEach(meeting.actionItems) { item in
-                        itemRow(
-                            title: item.task,
-                            detail: actionItemDetail(for: item)
-                        )
+                        actionItemRow(item)
                     }
                 }
             }
@@ -239,6 +295,52 @@ struct MeetingDetailView: View {
         .liquidGlassCard()
     }
 
+    @ViewBuilder
+    private func actionItemRow(_ item: ActionItem) -> some View {
+        if isEditing {
+            VStack(alignment: .leading, spacing: 12) {
+                Text(item.task)
+                    .font(.body.weight(.semibold))
+                    .themeTitle()
+
+                VStack(alignment: .leading, spacing: 8) {
+                    editableField(
+                        title: "Owner",
+                        text: Binding(
+                            get: { actionOwnerDrafts[item.id, default: item.owner] },
+                            set: { actionOwnerDrafts[item.id] = $0 }
+                        ),
+                        placeholder: "Assign owner"
+                    )
+
+                    editableField(
+                        title: "Deadline",
+                        text: Binding(
+                            get: { actionDeadlineDrafts[item.id, default: item.deadlineText] },
+                            set: { actionDeadlineDrafts[item.id] = $0 }
+                        ),
+                        placeholder: "Add deadline"
+                    )
+                }
+            }
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .padding(14)
+            .background(
+                RoundedRectangle(cornerRadius: 18, style: .continuous)
+                    .fill(AppTheme.elevatedSurfaceFill.opacity(0.6))
+            )
+            .overlay(
+                RoundedRectangle(cornerRadius: 18, style: .continuous)
+                    .stroke(AppTheme.surfaceStroke.opacity(0.9), lineWidth: 1)
+            )
+        } else {
+            itemRow(
+                title: item.task,
+                detail: actionItemDetail(for: item)
+            )
+        }
+    }
+
     private func itemRow(title: String, detail: String?) -> some View {
         VStack(alignment: .leading, spacing: 6) {
             Text(title)
@@ -279,6 +381,28 @@ struct MeetingDetailView: View {
             )
     }
 
+    private func editableField(title: String, text: Binding<String>, placeholder: String) -> some View {
+        VStack(alignment: .leading, spacing: 6) {
+            Text(title)
+                .font(.caption.weight(.semibold))
+                .themeMutedText()
+
+            TextField(placeholder, text: text)
+                .textFieldStyle(.plain)
+                .padding(.horizontal, 12)
+                .padding(.vertical, 10)
+                .background(
+                    RoundedRectangle(cornerRadius: 14, style: .continuous)
+                        .fill(AppTheme.surfaceFill.opacity(0.7))
+                )
+                .overlay(
+                    RoundedRectangle(cornerRadius: 14, style: .continuous)
+                        .stroke(AppTheme.surfaceStroke, lineWidth: 1)
+                )
+                .themeTitle()
+        }
+    }
+
     private func actionItemDetail(for item: ActionItem) -> String? {
         let owner = item.owner.isEmpty ? nil : "Owner: \(item.owner)"
         let deadline = item.deadlineText.isEmpty ? nil : "Due: \(item.deadlineText)"
@@ -314,6 +438,48 @@ struct MeetingDetailView: View {
 
     private func nonEmpty(_ text: String, fallback: String) -> String {
         text.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty ? fallback : text
+    }
+
+    private func loadDraftsFromMeeting() {
+        draftSummary = meeting.summary
+        actionOwnerDrafts = Dictionary(
+            uniqueKeysWithValues: meeting.actionItems.map { ($0.id, $0.owner) }
+        )
+        actionDeadlineDrafts = Dictionary(
+            uniqueKeysWithValues: meeting.actionItems.map { ($0.id, $0.deadlineText) }
+        )
+    }
+
+    private func beginEditing() {
+        loadDraftsFromMeeting()
+        saveErrorMessage = nil
+        isEditing = true
+    }
+
+    private func cancelEditing() {
+        loadDraftsFromMeeting()
+        saveErrorMessage = nil
+        isEditing = false
+    }
+
+    private func saveEdits() {
+        meeting.summary = draftSummary.trimmingCharacters(in: .whitespacesAndNewlines)
+
+        for item in meeting.actionItems {
+            item.owner = actionOwnerDrafts[item.id, default: item.owner].trimmingCharacters(in: .whitespacesAndNewlines)
+            item.deadlineText = actionDeadlineDrafts[item.id, default: item.deadlineText].trimmingCharacters(in: .whitespacesAndNewlines)
+        }
+
+        meeting.updatedAt = .now
+
+        do {
+            try modelContext.save()
+            saveErrorMessage = nil
+            isEditing = false
+            loadDraftsFromMeeting()
+        } catch {
+            saveErrorMessage = "The changes could not be saved."
+        }
     }
 }
 
