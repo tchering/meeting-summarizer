@@ -286,6 +286,8 @@ Refresh the history list automatically.
 Goal: Send recorded audio to your backend safely.
 
 ### Step 3.1 — Create API client shell
+**Status:** [x] Done
+
 **Objective:** Centralize networking.
 
 **Create:**
