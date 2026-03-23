@@ -1,137 +1,238 @@
 import SwiftUI
+import SwiftData
 import UIKit
 
 @MainActor
 struct RecordView: View {
+    @Environment(\.modelContext) private var modelContext
     @Environment(\.openURL) private var openURL
     @State private var viewModel = RecordViewModel()
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 20) {
-            VStack(alignment: .leading, spacing: 8) {
-                Label("Record Meeting", systemImage: "mic.fill")
-                    .font(.title2)
-                    .fontWeight(.semibold)
-                    .themeTitle()
+        ScrollView {
+            VStack(alignment: .leading, spacing: 20) {
+                headerSection
+                recorderStatusCard
+                controlSection
 
-                Text("Recording controls will be added in Phase 2.")
-                    .themeSecondaryText()
-            }
-            .liquidGlassCard()
-
-            VStack(alignment: .leading, spacing: 10) {
-                Text(statusTitle)
-                    .font(.headline)
-                    .themeTitle()
-                Text(statusMessage)
-                    .themeSecondaryText()
-            }
-            .liquidGlassCard()
-
-            primaryActionButton
-
-            if viewModel.permissionStatus == .granted {
-                VStack(alignment: .leading, spacing: 10) {
-                    Text("Elapsed Time")
-                        .font(.subheadline)
-                        .themeMutedText()
-                    Text(formattedElapsedTime)
-                        .font(.system(size: 34, weight: .semibold, design: .rounded))
-                        .themeTitle()
+                if let savedRecordingURL = viewModel.savedRecordingURL {
+                    savedConfirmationCard(url: savedRecordingURL)
                 }
-                .liquidGlassCard()
-            }
 
-            if let savedRecordingURL = viewModel.savedRecordingURL {
-                VStack(alignment: .leading, spacing: 10) {
-                    Text("Saved Recording")
-                        .font(.subheadline)
-                        .themeMutedText()
-                    Text(savedRecordingURL.lastPathComponent)
-                        .font(.headline)
-                        .themeTitle()
-                    Text(savedRecordingURL.path)
-                        .font(.footnote)
-                        .textSelection(.enabled)
-                        .themeSecondaryText()
+                if viewModel.permissionStatus == .denied {
+                    deniedStateCard
                 }
-                .liquidGlassCard()
-            }
 
-            if viewModel.permissionStatus == .denied {
-                VStack(alignment: .leading, spacing: 10) {
-                    Text("Microphone access is currently off for this app.")
-                        .font(.subheadline)
-                        .themeTitle()
-                    Text("Open Settings and enable microphone access to continue with recording in Phase 2.")
-                        .font(.subheadline)
-                        .themeSecondaryText()
+                if let errorMessage = viewModel.errorMessage {
+                    errorCard(message: errorMessage)
                 }
-                .liquidGlassCard()
             }
-
-            if let errorMessage = viewModel.errorMessage {
-                VStack(alignment: .leading, spacing: 10) {
-                    Text("Recording Error")
-                        .font(.subheadline)
-                        .themeTitle()
-                    Text(errorMessage)
-                        .font(.subheadline)
-                        .themeSecondaryText()
-                }
-                .liquidGlassCard()
-            }
-
-            Spacer()
+            .padding(AppTheme.contentPadding)
         }
-        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
-        .padding(AppTheme.contentPadding)
         .appScreenBackground()
         .navigationBarTitleDisplayMode(.inline)
         .task {
+            viewModel.attachModelContext(modelContext)
             viewModel.refreshPermissionStatus()
         }
     }
 
-    @ViewBuilder
-    private var primaryActionButton: some View {
-        switch viewModel.permissionStatus {
-        case .undetermined:
-            Button {
-                Task {
-                    await viewModel.requestMicrophoneAccess()
-                }
-            } label: {
-                Label(
-                    viewModel.isRequestingPermission ? "Requesting Access..." : "Allow Microphone Access",
-                    systemImage: "mic.badge.plus"
-                )
-                .frame(maxWidth: .infinity)
-            }
-            .disabled(viewModel.isRequestingPermission)
-            .liquidGlassButtonStyle()
+    private var headerSection: some View {
+        VStack(alignment: .leading, spacing: 8) {
+            Text("Recorder")
+                .font(.system(size: 18, weight: .semibold))
+                .themeMutedText()
 
-        case .granted:
-            Button {
-                viewModel.toggleRecording()
-            } label: {
-                Label(
-                    viewModel.recordingState == .recording ? "Stop Recording" : "Start Recording",
-                    systemImage: viewModel.recordingState == .recording ? "stop.circle" : "record.circle"
-                )
-                    .frame(maxWidth: .infinity)
-            }
-            .liquidGlassButtonStyle()
+            Text("Capture Meeting Audio")
+                .font(.largeTitle)
+                .fontWeight(.bold)
+                .themeTitle()
 
-        case .denied:
-            Button {
-                openSettings()
-            } label: {
-                Label("Open Settings", systemImage: "gearshape")
-                    .frame(maxWidth: .infinity)
-            }
-            .liquidGlassButtonStyle()
+            Text("Record locally, confirm the file was saved, and prepare the meeting for the next processing steps.")
+                .themeSecondaryText()
         }
+        .liquidGlassCard()
+    }
+
+    private var recorderStatusCard: some View {
+        VStack(alignment: .leading, spacing: 18) {
+            HStack(alignment: .center) {
+                HStack(spacing: 10) {
+                    Circle()
+                        .fill(indicatorColor)
+                        .frame(width: 12, height: 12)
+                        .overlay(
+                            Circle()
+                                .stroke(indicatorColor.opacity(0.35), lineWidth: 8)
+                                .scaleEffect(viewModel.recordingState == .recording ? 1.18 : 1)
+                                .opacity(viewModel.recordingState == .recording ? 0.9 : 0)
+                                .animation(.easeInOut(duration: 0.9).repeatForever(autoreverses: true), value: viewModel.recordingState == .recording)
+                        )
+
+                    Text(statusTitle)
+                        .font(.headline)
+                        .themeTitle()
+                }
+
+                Spacer()
+
+                Text(statusBadge)
+                    .font(.caption.weight(.semibold))
+                    .padding(.horizontal, 10)
+                    .padding(.vertical, 6)
+                    .background(
+                        Capsule(style: .continuous)
+                            .fill(AppTheme.elevatedSurfaceFill)
+                    )
+                    .overlay(
+                        Capsule(style: .continuous)
+                            .stroke(AppTheme.surfaceStroke, lineWidth: 1)
+                    )
+                    .themeTitle()
+            }
+
+            VStack(alignment: .leading, spacing: 6) {
+                Text("Elapsed Time")
+                    .font(.subheadline)
+                    .themeMutedText()
+
+                Text(formattedElapsedTime)
+                    .font(.system(size: 44, weight: .bold, design: .rounded))
+                    .monospacedDigit()
+                    .themeTitle()
+            }
+
+            Text(statusMessage)
+                .themeSecondaryText()
+        }
+        .liquidGlassCard()
+    }
+
+    private var controlSection: some View {
+        VStack(alignment: .leading, spacing: 14) {
+            Text("Controls")
+                .font(.subheadline)
+                .themeMutedText()
+
+            switch viewModel.permissionStatus {
+            case .undetermined:
+                permissionButton
+
+            case .granted:
+                HStack(spacing: 12) {
+                    startButton
+                    stopButton
+                }
+
+            case .denied:
+                settingsButton
+            }
+        }
+        .liquidGlassCard()
+    }
+
+    private func savedConfirmationCard(url: URL) -> some View {
+        VStack(alignment: .leading, spacing: 12) {
+            HStack(spacing: 10) {
+                Image(systemName: "checkmark.circle.fill")
+                    .foregroundStyle(AppTheme.accent)
+                Text("Recording Saved")
+                    .font(.headline)
+                    .themeTitle()
+            }
+
+            Text(url.lastPathComponent)
+                .font(.headline)
+                .themeTitle()
+
+            Text("Saved locally and ready for the next workflow step.")
+                .themeSecondaryText()
+
+            Text(url.path)
+                .font(.footnote)
+                .textSelection(.enabled)
+                .themeMutedText()
+        }
+        .liquidGlassCard()
+    }
+
+    private var deniedStateCard: some View {
+        VStack(alignment: .leading, spacing: 10) {
+            Text("Microphone access is currently off for this app.")
+                .font(.subheadline)
+                .themeTitle()
+            Text("Open Settings and enable microphone access to continue recording on this device.")
+                .font(.subheadline)
+                .themeSecondaryText()
+        }
+        .liquidGlassCard()
+    }
+
+    private func errorCard(message: String) -> some View {
+        VStack(alignment: .leading, spacing: 10) {
+            Text("Recording Error")
+                .font(.subheadline)
+                .themeTitle()
+            Text(message)
+                .font(.subheadline)
+                .themeSecondaryText()
+        }
+        .liquidGlassCard()
+    }
+
+    @ViewBuilder
+    private var permissionButton: some View {
+        Button {
+            Task {
+                await viewModel.requestMicrophoneAccess()
+            }
+        } label: {
+            Label(
+                viewModel.isRequestingPermission ? "Requesting Access..." : "Allow Microphone Access",
+                systemImage: "mic.badge.plus"
+            )
+            .frame(maxWidth: .infinity)
+        }
+        .disabled(viewModel.isRequestingPermission)
+        .liquidGlassButtonStyle()
+    }
+
+    private var settingsButton: some View {
+        Button {
+            openSettings()
+        } label: {
+            Label("Open Settings", systemImage: "gearshape")
+                .frame(maxWidth: .infinity)
+        }
+        .liquidGlassButtonStyle()
+    }
+
+    private var startButton: some View {
+        Button {
+            if viewModel.recordingState != .recording {
+                viewModel.toggleRecording()
+            }
+        } label: {
+            Label("Start", systemImage: "record.circle")
+                .frame(maxWidth: .infinity)
+        }
+        .disabled(viewModel.recordingState == .recording)
+        .opacity(viewModel.recordingState == .recording ? 0.55 : 1)
+        .liquidGlassButtonStyle()
+    }
+
+    private var stopButton: some View {
+        Button {
+            if viewModel.recordingState == .recording {
+                viewModel.toggleRecording()
+            }
+        } label: {
+            Label("Stop", systemImage: "stop.circle")
+                .frame(maxWidth: .infinity)
+        }
+        .disabled(viewModel.recordingState != .recording)
+        .opacity(viewModel.recordingState == .recording ? 1 : 0.55)
+        .liquidGlassButtonStyle()
     }
 
     private var statusTitle: String {
@@ -154,7 +255,7 @@ struct RecordView: View {
             case .idle:
                 return "Permission is granted. You can start recording now."
             case .recording:
-                return "Recording in progress. Tap stop when you are done."
+                return "Recording in progress. The timer is live and the audio is being written to a local .m4a file."
             case .finished:
                 return "Recording finished and saved locally."
             case .failed:
@@ -170,6 +271,46 @@ struct RecordView: View {
         let minutes = totalSeconds / 60
         let seconds = totalSeconds % 60
         return String(format: "%02d:%02d", minutes, seconds)
+    }
+
+    private var statusBadge: String {
+        switch viewModel.permissionStatus {
+        case .undetermined:
+            return "Permission"
+        case .granted:
+            switch viewModel.recordingState {
+            case .idle:
+                return "Ready"
+            case .recording:
+                return "Live"
+            case .finished:
+                return "Saved"
+            case .failed:
+                return "Error"
+            }
+        case .denied:
+            return "Denied"
+        }
+    }
+
+    private var indicatorColor: Color {
+        switch viewModel.permissionStatus {
+        case .undetermined:
+            return Color.orange
+        case .granted:
+            switch viewModel.recordingState {
+            case .idle:
+                return AppTheme.accent
+            case .recording:
+                return Color.red
+            case .finished:
+                return Color.green
+            case .failed:
+                return Color.orange
+            }
+        case .denied:
+            return Color.orange
+        }
     }
 
     private func openSettings() {

@@ -243,6 +243,8 @@ Keep the SwiftUI view thin.
 ```
 
 ### Step 2.4 — Add recording UI polish
+**Status:** [x] Done
+
 **Objective:** Make the recorder usable.
 
 **UI elements:**
@@ -263,6 +265,8 @@ Keep the design simple and modern.
 ```
 
 ### Step 2.5 — Save a Meeting after recording
+**Status:** [x] Done
+
 **Objective:** Turn a recorded file into a local meeting object.
 
 **Deliverable:**

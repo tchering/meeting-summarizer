@@ -1,5 +1,6 @@
 import Foundation
 import Observation
+import SwiftData
 
 @MainActor
 @Observable
@@ -14,6 +15,7 @@ final class RecordViewModel {
     private let permissionService: MicrophonePermissionServicing
     private let recordingService: AudioRecordingService
     private var recordingTimerTask: Task<Void, Never>?
+    private var modelContext: ModelContext?
 
     init() {
         self.permissionService = MicrophonePermissionService()
@@ -35,6 +37,10 @@ final class RecordViewModel {
     func refreshPermissionStatus() {
         permissionStatus = permissionService.currentStatus()
         syncRecordingState()
+    }
+
+    func attachModelContext(_ modelContext: ModelContext) {
+        self.modelContext = modelContext
     }
 
     func requestMicrophoneAccess() async {
@@ -78,6 +84,10 @@ final class RecordViewModel {
         savedRecordingURL = recordingService.stopRecording()
         syncRecordingState()
         stopElapsedTimeUpdates()
+
+        if let savedRecordingURL {
+            persistRecordedMeeting(from: savedRecordingURL)
+        }
     }
 
     private func startElapsedTimeUpdates() {
@@ -112,5 +122,40 @@ final class RecordViewModel {
         case .failed(let message):
             errorMessage = message
         }
+    }
+
+    private func persistRecordedMeeting(from recordingURL: URL) {
+        guard let modelContext else {
+            errorMessage = "Recording was saved, but the app could not store the meeting locally."
+            return
+        }
+
+        let createdAt = Date()
+        let meeting = Meeting(
+            title: defaultMeetingTitle(for: createdAt),
+            createdAt: createdAt,
+            updatedAt: createdAt,
+            status: "recorded",
+            transcript: "",
+            summary: "Audio recorded locally. Transcription and summarization will happen in a later phase.",
+            audioFilePath: recordingURL.path,
+            durationSeconds: elapsedTime
+        )
+
+        modelContext.insert(meeting)
+
+        do {
+            try modelContext.save()
+        } catch {
+            modelContext.delete(meeting)
+            errorMessage = "Recording was saved, but the meeting entry could not be created."
+        }
+    }
+
+    private func defaultMeetingTitle(for date: Date) -> String {
+        let formatter = DateFormatter()
+        formatter.dateStyle = .medium
+        formatter.timeStyle = .short
+        return "Recorded Meeting \(formatter.string(from: date))"
     }
 }
