@@ -89,10 +89,18 @@ final class RecordViewModel {
             let importedURL = try audioFileImportService.importAudioFile(from: sourceURL)
             importedAudioURL = importedURL
             savedRecordingURL = nil
-            activeMeeting = nil
             uploadState = .idle
             pollingState = .idle
             errorMessage = nil
+            persistAudioMeeting(
+                from: importedURL,
+                title: importedMeetingTitle(for: importedURL),
+                summary: "Audio imported from device. Upload and summarization can use the same backend workflow as recorded audio."
+            )
+
+            if activeMeeting != nil {
+                await uploadRecordedAudio()
+            }
         } catch {
             errorMessage = error.localizedDescription
         }
@@ -103,16 +111,16 @@ final class RecordViewModel {
     }
 
     func uploadRecordedAudio() async {
-        guard let savedRecordingURL else {
-            uploadState = .failure("No recorded audio file is available to upload.")
+        guard let audioFileURL = currentAudioFileURL else {
+            uploadState = .failure("No audio file is available to upload.")
             return
         }
 
         updateMeetingStatus(.uploading)
 
         await uploadService.uploadAudioFile(
-            at: savedRecordingURL,
-            fields: ["meeting_title": defaultMeetingTitle(for: Date())]
+            at: audioFileURL,
+            fields: ["meeting_title": activeMeeting?.title ?? defaultMeetingTitle(for: Date())]
         )
         uploadState = uploadService.state
 
@@ -178,7 +186,12 @@ final class RecordViewModel {
         stopElapsedTimeUpdates()
 
         if let savedRecordingURL {
-            persistRecordedMeeting(from: savedRecordingURL)
+            persistAudioMeeting(
+                from: savedRecordingURL,
+                title: defaultMeetingTitle(for: Date()),
+                summary: "Audio recorded locally. Transcription and summarization will happen in a later phase.",
+                durationSeconds: elapsedTime
+            )
         }
     }
 
@@ -238,22 +251,27 @@ final class RecordViewModel {
         applyBackendResult(result)
     }
 
-    private func persistRecordedMeeting(from recordingURL: URL) {
+    private func persistAudioMeeting(
+        from audioURL: URL,
+        title: String,
+        summary: String,
+        durationSeconds: Double = 0
+    ) {
         guard let modelContext else {
-            errorMessage = "Recording was saved, but the app could not store the meeting locally."
+            errorMessage = "The audio file was saved, but the app could not store the meeting locally."
             return
         }
 
         let createdAt = Date()
         let meeting = Meeting(
-            title: defaultMeetingTitle(for: createdAt),
+            title: title,
             createdAt: createdAt,
             updatedAt: createdAt,
             status: MeetingProcessingStatus.recorded.rawValue,
             transcript: "",
-            summary: "Audio recorded locally. Transcription and summarization will happen in a later phase.",
-            audioFilePath: recordingURL.path,
-            durationSeconds: elapsedTime
+            summary: summary,
+            audioFilePath: audioURL.path,
+            durationSeconds: durationSeconds
         )
 
         modelContext.insert(meeting)
@@ -263,7 +281,7 @@ final class RecordViewModel {
             activeMeeting = meeting
         } catch {
             modelContext.delete(meeting)
-            errorMessage = "Recording was saved, but the meeting entry could not be created."
+            errorMessage = "The audio file was saved, but the meeting entry could not be created."
         }
     }
 
@@ -302,5 +320,18 @@ final class RecordViewModel {
         formatter.dateStyle = .medium
         formatter.timeStyle = .short
         return "Recorded Meeting \(formatter.string(from: date))"
+    }
+
+    private func importedMeetingTitle(for audioURL: URL) -> String {
+        let fileName = audioURL.deletingPathExtension().lastPathComponent
+        guard !fileName.isEmpty else {
+            return "Imported Audio Meeting"
+        }
+
+        return "Imported \(fileName)"
+    }
+
+    private var currentAudioFileURL: URL? {
+        savedRecordingURL ?? importedAudioURL
     }
 }

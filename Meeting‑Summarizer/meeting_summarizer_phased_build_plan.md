@@ -465,6 +465,8 @@ Support common audio formats and return a usable file URL for upload.
 ```
 
 ### Step 5.2 — Convert uploaded file into Meeting workflow
+**Status:** [x] Done
+
 **Objective:** Reuse the same backend pipeline.
 
 **Deliverable:**
@@ -563,7 +565,11 @@ Improve the UX for the meeting list, processing screen, and meeting detail scree
 # Phase 8 — Backend AI Pipeline Tasks
 Goal: Build the server side that powers the app.
 
-## This phase is backend-focused, but keep it in the plan so Codex can generate server code separately.
+## This phase is superseded by `backend_meeting_summarizer_plan.md`, which is now the backend source of truth.
+
+Use `backend_meeting_summarizer_plan.md` for all backend architecture, API, worker, storage, schema, and pipeline implementation work.
+
+Keep this Phase 8 section only as a legacy high-level placeholder so the overall product plan still references backend work.
 
 ### Step 8.1 — Build backend upload endpoint
 **Deliverable:**

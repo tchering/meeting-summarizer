@@ -56,6 +56,19 @@ struct MeetingSummaryDecision: Decodable, Sendable, Identifiable {
     init(text: String) {
         self.text = text
     }
+
+    enum CodingKeys: String, CodingKey {
+        case decision
+        case text
+    }
+
+    init(from decoder: Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        self.text =
+            try container.decodeIfPresent(String.self, forKey: .decision) ??
+            container.decodeIfPresent(String.self, forKey: .text) ??
+            ""
+    }
 }
 
 struct MeetingSummaryActionItem: Decodable, Sendable, Identifiable {
@@ -69,6 +82,22 @@ struct MeetingSummaryActionItem: Decodable, Sendable, Identifiable {
         self.owner = owner
         self.deadline = deadline
     }
+
+    enum CodingKeys: String, CodingKey {
+        case task
+        case owner
+        case deadline
+        case deadlineText = "deadline_text"
+    }
+
+    init(from decoder: Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        self.task = try container.decode(String.self, forKey: .task)
+        self.owner = try container.decodeIfPresent(String.self, forKey: .owner)
+        self.deadline =
+            try container.decodeIfPresent(String.self, forKey: .deadline) ??
+            container.decodeIfPresent(String.self, forKey: .deadlineText)
+    }
 }
 
 struct MeetingSummaryRisk: Decodable, Sendable, Identifiable {
@@ -78,6 +107,19 @@ struct MeetingSummaryRisk: Decodable, Sendable, Identifiable {
     init(text: String) {
         self.text = text
     }
+
+    enum CodingKeys: String, CodingKey {
+        case risk
+        case text
+    }
+
+    init(from decoder: Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        self.text =
+            try container.decodeIfPresent(String.self, forKey: .risk) ??
+            container.decodeIfPresent(String.self, forKey: .text) ??
+            ""
+    }
 }
 
 struct MeetingSummaryOpenQuestion: Decodable, Sendable, Identifiable {
@@ -86,6 +128,19 @@ struct MeetingSummaryOpenQuestion: Decodable, Sendable, Identifiable {
 
     init(text: String) {
         self.text = text
+    }
+
+    enum CodingKeys: String, CodingKey {
+        case question
+        case text
+    }
+
+    init(from decoder: Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        self.text =
+            try container.decodeIfPresent(String.self, forKey: .question) ??
+            container.decodeIfPresent(String.self, forKey: .text) ??
+            ""
     }
 }
 
@@ -101,11 +156,23 @@ struct MeetingSummarySpeaker: Decodable, Sendable, Identifiable {
 
     init(from decoder: Decoder) throws {
         let container = try decoder.container(keyedBy: CodingKeys.self)
-        self.name = try container.decodeIfPresent(String.self, forKey: .name) ?? "Unknown"
-        self.highlights = try container.decodeIfPresent([String].self, forKey: .highlights) ?? []
+        self.name =
+            try container.decodeIfPresent(String.self, forKey: .displayName) ??
+            container.decodeIfPresent(String.self, forKey: .speakerLabel) ??
+            container.decodeIfPresent(String.self, forKey: .name) ??
+            "Unknown"
+
+        if let notes = try container.decodeIfPresent(String.self, forKey: .notes), !notes.isEmpty {
+            self.highlights = [notes]
+        } else {
+            self.highlights = try container.decodeIfPresent([String].self, forKey: .highlights) ?? []
+        }
     }
 
     enum CodingKeys: String, CodingKey {
+        case speakerLabel = "speaker_label"
+        case displayName = "display_name"
+        case notes
         case name
         case highlights
     }

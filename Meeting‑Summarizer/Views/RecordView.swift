@@ -23,6 +23,7 @@ struct RecordView: View {
 
                 if let importedAudioURL = viewModel.importedAudioURL {
                     importedFileCard(url: importedAudioURL)
+                    uploadCard
                 }
 
                 if viewModel.permissionStatus == .denied {
