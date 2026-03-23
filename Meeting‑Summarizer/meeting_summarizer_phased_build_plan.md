@@ -224,6 +224,8 @@ Keep the implementation clean and MVP-focused.
 ```
 
 ### Step 2.3 — Connect recording service to RecordViewModel
+**Status:** [x] Done
+
 **Objective:** Move UI logic out of the view.
 
 **Create:**

@@ -9,14 +9,15 @@ enum AudioRecordingState: Equatable {
     case failed(String)
 }
 
-@MainActor
 @Observable
 final class AudioRecordingService: NSObject, AVAudioRecorderDelegate {
     private(set) var recordingState: AudioRecordingState = .idle
     private(set) var currentRecordingURL: URL?
 
     private var recorder: AVAudioRecorder?
+    private let fileManager = FileManager.default
 
+    @MainActor
     func startRecording() throws {
         let audioSession = AVAudioSession.sharedInstance()
         try audioSession.setCategory(.playAndRecord, mode: .default, options: [.defaultToSpeaker])
@@ -37,6 +38,7 @@ final class AudioRecordingService: NSObject, AVAudioRecorderDelegate {
         recordingState = .recording
     }
 
+    @MainActor
     func stopRecording() -> URL? {
         guard let recorder else {
             return currentRecordingURL
@@ -46,7 +48,7 @@ final class AudioRecordingService: NSObject, AVAudioRecorderDelegate {
         recorder.stop()
         self.recorder = nil
 
-        if FileManager.default.fileExists(atPath: recordedURL.path) {
+        if fileManager.fileExists(atPath: recordedURL.path) {
             currentRecordingURL = recordedURL
             recordingState = .finished(recordedURL)
             return recordedURL
@@ -56,20 +58,31 @@ final class AudioRecordingService: NSObject, AVAudioRecorderDelegate {
         return nil
     }
 
-    func audioRecorderDidFinishRecording(_ recorder: AVAudioRecorder, successfully flag: Bool) {
-        if flag {
-            let recordedURL = recorder.url
-            currentRecordingURL = recordedURL
-            recordingState = .finished(recordedURL)
-        } else {
-            recordingState = .failed("Recording did not finish successfully.")
+    @MainActor
+    var elapsedTime: TimeInterval {
+        recorder?.currentTime ?? 0
+    }
+
+    nonisolated func audioRecorderDidFinishRecording(_ recorder: AVAudioRecorder, successfully flag: Bool) {
+        Task { @MainActor in
+            if flag {
+                let recordedURL = recorder.url
+                currentRecordingURL = recordedURL
+                recordingState = .finished(recordedURL)
+            } else {
+                recordingState = .failed("Recording did not finish successfully.")
+            }
+
+            self.recorder = nil
         }
     }
 
-    func audioRecorderEncodeErrorDidOccur(_ recorder: AVAudioRecorder, error: (any Error)?) {
-        let message = error?.localizedDescription ?? "An unknown audio encoding error occurred."
-        recordingState = .failed(message)
-        self.recorder = nil
+    nonisolated func audioRecorderEncodeErrorDidOccur(_ recorder: AVAudioRecorder, error: (any Error)?) {
+        Task { @MainActor in
+            let message = error?.localizedDescription ?? "An unknown audio encoding error occurred."
+            recordingState = .failed(message)
+            self.recorder = nil
+        }
     }
 
     private var recordingSettings: [String: Any] {
@@ -96,8 +109,8 @@ final class AudioRecordingService: NSObject, AVAudioRecorderDelegate {
         }
 
         let recordingsDirectory = documentsDirectory.appendingPathComponent("Recordings", isDirectory: true)
-        if !FileManager.default.fileExists(atPath: recordingsDirectory.path) {
-            try FileManager.default.createDirectory(at: recordingsDirectory, withIntermediateDirectories: true)
+        if !fileManager.fileExists(atPath: recordingsDirectory.path) {
+            try fileManager.createDirectory(at: recordingsDirectory, withIntermediateDirectories: true)
         }
 
         return recordingsDirectory
