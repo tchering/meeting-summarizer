@@ -4,6 +4,7 @@ import Observation
 
 enum AudioRecordingState: Equatable {
     case idle
+    case starting
     case recording
     case finished(URL)
     case failed(String)
@@ -18,23 +19,39 @@ final class AudioRecordingService: NSObject, AVAudioRecorderDelegate {
     private var recorder: AVAudioRecorder?
     private let fileManager = FileManager.default
     private var isSessionPrepared = false
+    private let audioSessionQueue = DispatchQueue(label: "MeetingSummarizer.AudioSession")
+    private var recordingStartedAt: Date?
 
-    @MainActor
-    func prepareRecordingSession() throws {
-        guard !isSessionPrepared else {
-            return
+    func prepareRecordingSession() async throws {
+        try await withCheckedThrowingContinuation { continuation in
+            audioSessionQueue.async {
+                do {
+                    guard !self.isSessionPrepared else {
+                        continuation.resume()
+                        return
+                    }
+
+                    let audioSession = AVAudioSession.sharedInstance()
+                    try audioSession.setCategory(.playAndRecord, mode: .default, options: [.defaultToSpeaker])
+                    try audioSession.setPreferredIOBufferDuration(0.005)
+                    try audioSession.setActive(true)
+                    self.isSessionPrepared = true
+                    continuation.resume()
+                } catch {
+                    continuation.resume(throwing: error)
+                }
+            }
         }
-
-        let audioSession = AVAudioSession.sharedInstance()
-        try audioSession.setCategory(.playAndRecord, mode: .default, options: [.defaultToSpeaker])
-        try audioSession.setPreferredIOBufferDuration(0.005)
-        try audioSession.setActive(true)
-        isSessionPrepared = true
     }
 
     @MainActor
-    func startRecording() throws {
-        try prepareRecordingSession()
+    func startRecording() async throws {
+        recordingState = .starting
+        currentRecordingURL = nil
+        lastRecordedDuration = 0
+        recordingStartedAt = nil
+
+        try await prepareRecordingSession()
 
         let recordingURL = try makeRecordingURL()
         let recorder = try AVAudioRecorder(url: recordingURL, settings: recordingSettings)
@@ -48,7 +65,7 @@ final class AudioRecordingService: NSObject, AVAudioRecorderDelegate {
 
         self.recorder = recorder
         currentRecordingURL = recordingURL
-        lastRecordedDuration = 0
+        recordingStartedAt = .now
         recordingState = .recording
     }
 
@@ -62,6 +79,7 @@ final class AudioRecordingService: NSObject, AVAudioRecorderDelegate {
         let recordedDuration = recorder.currentTime
         recorder.stop()
         self.recorder = nil
+        recordingStartedAt = nil
         lastRecordedDuration = recordedDuration
 
         if fileManager.fileExists(atPath: recordedURL.path) {
@@ -76,7 +94,11 @@ final class AudioRecordingService: NSObject, AVAudioRecorderDelegate {
 
     @MainActor
     var elapsedTime: TimeInterval {
-        recorder?.currentTime ?? lastRecordedDuration
+        if let recordingStartedAt {
+            return Date().timeIntervalSince(recordingStartedAt)
+        }
+
+        return lastRecordedDuration
     }
 
     nonisolated func audioRecorderDidFinishRecording(_ recorder: AVAudioRecorder, successfully flag: Bool) {
@@ -91,6 +113,7 @@ final class AudioRecordingService: NSObject, AVAudioRecorderDelegate {
             }
 
             self.recorder = nil
+            recordingStartedAt = nil
         }
     }
 
@@ -99,6 +122,7 @@ final class AudioRecordingService: NSObject, AVAudioRecorderDelegate {
             let message = error?.localizedDescription ?? "An unknown audio encoding error occurred."
             recordingState = .failed(message)
             self.recorder = nil
+            recordingStartedAt = nil
         }
     }
 

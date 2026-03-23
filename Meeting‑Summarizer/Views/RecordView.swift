@@ -34,7 +34,7 @@ struct RecordView: View {
         .navigationBarTitleDisplayMode(.inline)
         .task {
             viewModel.attachModelContext(modelContext)
-            viewModel.refreshPermissionStatus()
+            await viewModel.refreshPermissionStatus()
         }
     }
 
@@ -65,9 +65,9 @@ struct RecordView: View {
                         .overlay(
                             Circle()
                                 .stroke(indicatorColor.opacity(0.35), lineWidth: 8)
-                                .scaleEffect(viewModel.recordingState == .recording ? 1.18 : 1)
-                                .opacity(viewModel.recordingState == .recording ? 0.9 : 0)
-                                .animation(.easeInOut(duration: 0.9).repeatForever(autoreverses: true), value: viewModel.recordingState == .recording)
+                                .scaleEffect(isRecordingActive ? 1.18 : 1)
+                                .opacity(isRecordingActive ? 0.9 : 0)
+                                .animation(.easeInOut(duration: 0.9).repeatForever(autoreverses: true), value: isRecordingActive)
                         )
 
                     Text(statusTitle)
@@ -274,29 +274,31 @@ struct RecordView: View {
 
     private var startButton: some View {
         Button {
-            if viewModel.recordingState != .recording {
-                viewModel.toggleRecording()
+            guard !isRecordingActive else { return }
+            Task {
+                await viewModel.toggleRecording()
             }
         } label: {
             Label("Start", systemImage: "record.circle")
                 .frame(maxWidth: .infinity)
         }
-        .disabled(viewModel.recordingState == .recording)
-        .opacity(viewModel.recordingState == .recording ? 0.55 : 1)
+        .disabled(isRecordingActive)
+        .opacity(isRecordingActive ? 0.55 : 1)
         .liquidGlassButtonStyle()
     }
 
     private var stopButton: some View {
         Button {
-            if viewModel.recordingState == .recording {
-                viewModel.toggleRecording()
+            guard isRecordingActive else { return }
+            Task {
+                await viewModel.toggleRecording()
             }
         } label: {
             Label("Stop", systemImage: "stop.circle")
                 .frame(maxWidth: .infinity)
         }
-        .disabled(viewModel.recordingState != .recording)
-        .opacity(viewModel.recordingState == .recording ? 1 : 0.55)
+        .disabled(!isRecordingActive)
+        .opacity(isRecordingActive ? 1 : 0.55)
         .liquidGlassButtonStyle()
     }
 
@@ -305,7 +307,12 @@ struct RecordView: View {
         case .undetermined:
             return "Permission Needed"
         case .granted:
-            return "Microphone Ready"
+            switch viewModel.recordingState {
+            case .starting:
+                return "Starting Recorder"
+            default:
+                return "Microphone Ready"
+            }
         case .denied:
             return "Access Denied"
         }
@@ -319,6 +326,8 @@ struct RecordView: View {
             switch viewModel.recordingState {
             case .idle:
                 return "Permission is granted. You can start recording now."
+            case .starting:
+                return "Starting the recorder and activating the microphone..."
             case .recording:
                 return "Recording in progress. The timer is live and the audio is being written to a local .m4a file."
             case .finished:
@@ -346,6 +355,8 @@ struct RecordView: View {
             switch viewModel.recordingState {
             case .idle:
                 return "Ready"
+            case .starting:
+                return "Starting"
             case .recording:
                 return "Live"
             case .finished:
@@ -366,6 +377,8 @@ struct RecordView: View {
             switch viewModel.recordingState {
             case .idle:
                 return AppTheme.accent
+            case .starting:
+                return Color.orange
             case .recording:
                 return Color.red
             case .finished:
@@ -396,6 +409,15 @@ struct RecordView: View {
             return true
         }
         return false
+    }
+
+    private var isRecordingActive: Bool {
+        switch viewModel.recordingState {
+        case .starting, .recording:
+            return true
+        case .idle, .finished, .failed:
+            return false
+        }
     }
 
     private func openSettings() {

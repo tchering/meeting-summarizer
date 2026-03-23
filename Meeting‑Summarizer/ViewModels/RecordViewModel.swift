@@ -53,9 +53,9 @@ final class RecordViewModel {
         self.pollingState = pollingService.state
     }
 
-    func refreshPermissionStatus() {
+    func refreshPermissionStatus() async {
         permissionStatus = permissionService.currentStatus()
-        prepareRecordingSessionIfNeeded()
+        await prepareRecordingSessionIfNeeded()
         syncRecordingState()
     }
 
@@ -71,7 +71,7 @@ final class RecordViewModel {
         isRequestingPermission = true
         permissionStatus = await permissionService.requestPermission()
         isRequestingPermission = false
-        prepareRecordingSessionIfNeeded()
+        await prepareRecordingSessionIfNeeded()
     }
 
     func uploadRecordedAudio() async {
@@ -101,24 +101,27 @@ final class RecordViewModel {
         }
     }
 
-    func toggleRecording() {
+    func toggleRecording() async {
         switch permissionStatus {
         case .granted:
             switch recordingState {
             case .recording:
                 stopRecording()
             default:
-                startRecording()
+                await startRecording()
             }
         case .undetermined, .denied:
             break
         }
     }
 
-    private func startRecording() {
+    private func startRecording() async {
+        recordingState = .starting
+        errorMessage = nil
+        savedRecordingURL = nil
+
         do {
-            try recordingService.startRecording()
-            savedRecordingURL = nil
+            try await recordingService.startRecording()
             errorMessage = nil
             syncRecordingState()
             startElapsedTimeUpdates()
@@ -128,13 +131,13 @@ final class RecordViewModel {
         }
     }
 
-    private func prepareRecordingSessionIfNeeded() {
+    private func prepareRecordingSessionIfNeeded() async {
         guard permissionStatus == .granted else {
             return
         }
 
         do {
-            try recordingService.prepareRecordingSession()
+            try await recordingService.prepareRecordingSession()
         } catch {
             errorMessage = error.localizedDescription
         }
@@ -176,6 +179,9 @@ final class RecordViewModel {
         switch recordingState {
         case .idle:
             break
+        case .starting:
+            errorMessage = nil
+            uploadState = .idle
         case .recording:
             errorMessage = nil
             uploadState = .idle

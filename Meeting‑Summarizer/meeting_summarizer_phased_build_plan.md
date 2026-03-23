@@ -403,6 +403,8 @@ Keep the mapping logic inside a service or repository, not inside the SwiftUI vi
 ```
 
 ### Step 4.3 — Build MeetingDetailView UI
+**Status:** [x] Done
+
 **Objective:** Show final meeting result clearly.
 
 **Sections:**
