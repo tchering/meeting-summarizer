@@ -13,6 +13,7 @@ enum AudioRecordingState: Equatable {
 final class AudioRecordingService: NSObject, AVAudioRecorderDelegate {
     private(set) var recordingState: AudioRecordingState = .idle
     private(set) var currentRecordingURL: URL?
+    private(set) var lastRecordedDuration: TimeInterval = 0
 
     private var recorder: AVAudioRecorder?
     private let fileManager = FileManager.default
@@ -35,6 +36,7 @@ final class AudioRecordingService: NSObject, AVAudioRecorderDelegate {
 
         self.recorder = recorder
         currentRecordingURL = recordingURL
+        lastRecordedDuration = 0
         recordingState = .recording
     }
 
@@ -45,8 +47,10 @@ final class AudioRecordingService: NSObject, AVAudioRecorderDelegate {
         }
 
         let recordedURL = recorder.url
+        let recordedDuration = recorder.currentTime
         recorder.stop()
         self.recorder = nil
+        lastRecordedDuration = recordedDuration
 
         if fileManager.fileExists(atPath: recordedURL.path) {
             currentRecordingURL = recordedURL
@@ -60,13 +64,14 @@ final class AudioRecordingService: NSObject, AVAudioRecorderDelegate {
 
     @MainActor
     var elapsedTime: TimeInterval {
-        recorder?.currentTime ?? 0
+        recorder?.currentTime ?? lastRecordedDuration
     }
 
     nonisolated func audioRecorderDidFinishRecording(_ recorder: AVAudioRecorder, successfully flag: Bool) {
         Task { @MainActor in
             if flag {
                 let recordedURL = recorder.url
+                lastRecordedDuration = recorder.currentTime
                 currentRecordingURL = recordedURL
                 recordingState = .finished(recordedURL)
             } else {
