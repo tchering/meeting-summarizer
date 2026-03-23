@@ -1,5 +1,6 @@
 import SwiftData
 import SwiftUI
+import UIKit
 
 struct MeetingDetailView: View {
     @Environment(\.modelContext) private var modelContext
@@ -11,6 +12,8 @@ struct MeetingDetailView: View {
     @State private var actionOwnerDrafts: [UUID: String] = [:]
     @State private var actionDeadlineDrafts: [UUID: String] = [:]
     @State private var saveErrorMessage: String?
+    @State private var copyConfirmationMessage: String?
+    @State private var isShowingShareSheet = false
 
     var body: some View {
         ScrollView(showsIndicators: false) {
@@ -29,6 +32,22 @@ struct MeetingDetailView: View {
         .appScreenBackground()
         .navigationBarTitleDisplayMode(.inline)
         .toolbar {
+            ToolbarItemGroup(placement: .topBarTrailing) {
+                if !isEditing {
+                    Button {
+                        isShowingShareSheet = true
+                    } label: {
+                        Image(systemName: "square.and.arrow.up")
+                    }
+
+                    Button {
+                        copyRecap()
+                    } label: {
+                        Image(systemName: "doc.on.doc")
+                    }
+                }
+            }
+
             ToolbarItem(placement: .topBarTrailing) {
                 if isEditing {
                     Button("Save") {
@@ -44,6 +63,9 @@ struct MeetingDetailView: View {
         }
         .task {
             loadDraftsFromMeeting()
+        }
+        .sheet(isPresented: $isShowingShareSheet) {
+            ActivityShareSheet(activityItems: [shareText])
         }
     }
 
@@ -93,6 +115,12 @@ struct MeetingDetailView: View {
                 Text(saveErrorMessage)
                     .font(.footnote)
                     .foregroundStyle(Color.orange)
+            }
+
+            if let copyConfirmationMessage {
+                Text(copyConfirmationMessage)
+                    .font(.footnote.weight(.semibold))
+                    .foregroundStyle(AppTheme.accent)
             }
         }
         .liquidGlassCard()
@@ -480,6 +508,46 @@ struct MeetingDetailView: View {
         } catch {
             saveErrorMessage = "The changes could not be saved."
         }
+    }
+
+    private func copyRecap() {
+        UIPasteboard.general.string = shareText
+        copyConfirmationMessage = "Recap copied."
+
+        Task { @MainActor in
+            try? await Task.sleep(for: .seconds(2))
+            if copyConfirmationMessage == "Recap copied." {
+                copyConfirmationMessage = nil
+            }
+        }
+    }
+
+    private var shareText: String {
+        var lines: [String] = [meeting.title]
+
+        lines.append("")
+        lines.append("Summary")
+        lines.append(nonEmpty(meeting.summary, fallback: "No summary available yet."))
+
+        if !meeting.actionItems.isEmpty {
+            lines.append("")
+            lines.append("Action Items")
+            lines.append(contentsOf: meeting.actionItems.map { item in
+                var row = "- \(item.task)"
+
+                if !item.owner.isEmpty {
+                    row += " | Owner: \(item.owner)"
+                }
+
+                if !item.deadlineText.isEmpty {
+                    row += " | Due: \(item.deadlineText)"
+                }
+
+                return row
+            })
+        }
+
+        return lines.joined(separator: "\n")
     }
 }
 

@@ -485,6 +485,8 @@ When a file is selected, create a Meeting object and upload it through the same 
 Goal: Let users use the results.
 
 ### Step 6.1 — Copy/share summary
+**Status:** [x] Done
+
 **Objective:** Make recap useful immediately.
 
 **Deliverable:**
