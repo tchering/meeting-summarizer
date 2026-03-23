@@ -367,6 +367,8 @@ Keep the polling logic simple and MVP-friendly.
 Goal: Accept structured backend JSON and display it in the app.
 
 ### Step 4.1 — Create response models
+**Status:** [x] Done
+
 **Objective:** Decode backend summary JSON.
 
 **Create:**
