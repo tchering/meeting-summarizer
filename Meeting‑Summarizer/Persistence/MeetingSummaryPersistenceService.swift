@@ -55,6 +55,7 @@ struct MeetingSummaryPersistenceService {
         }
 
         meeting.processingStatus = status
+        AppLogger.processingStateChanged(status.rawValue)
 
         try modelContext.save()
     }

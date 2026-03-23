@@ -36,8 +36,10 @@ final class AudioRecordingService: NSObject, AVAudioRecorderDelegate {
                     try audioSession.setPreferredIOBufferDuration(0.005)
                     try audioSession.setActive(true)
                     self.isSessionPrepared = true
+                    AppLogger.recordingSessionPrepared()
                     continuation.resume()
                 } catch {
+                    AppLogger.recordingFailed(error.localizedDescription)
                     continuation.resume(throwing: error)
                 }
             }
@@ -46,6 +48,7 @@ final class AudioRecordingService: NSObject, AVAudioRecorderDelegate {
 
     @MainActor
     func startRecording() async throws {
+        AppLogger.recordingStartRequested()
         recordingState = .starting
         currentRecordingURL = nil
         lastRecordedDuration = 0
@@ -60,6 +63,7 @@ final class AudioRecordingService: NSObject, AVAudioRecorderDelegate {
 
         guard recorder.prepareToRecord(), recorder.record() else {
             recordingState = .failed("Unable to start recording.")
+            AppLogger.recordingFailed("Unable to start recording.")
             throw AudioRecordingServiceError.unableToStart
         }
 
@@ -67,6 +71,7 @@ final class AudioRecordingService: NSObject, AVAudioRecorderDelegate {
         currentRecordingURL = recordingURL
         recordingStartedAt = .now
         recordingState = .recording
+        AppLogger.recordingStarted(fileName: recordingURL.lastPathComponent)
     }
 
     @MainActor
@@ -85,10 +90,12 @@ final class AudioRecordingService: NSObject, AVAudioRecorderDelegate {
         if fileManager.fileExists(atPath: recordedURL.path) {
             currentRecordingURL = recordedURL
             recordingState = .finished(recordedURL)
+            AppLogger.recordingStopped(fileName: recordedURL.lastPathComponent, duration: recordedDuration)
             return recordedURL
         }
 
         recordingState = .failed("The recording file could not be found after stopping.")
+        AppLogger.recordingFailed("The recording file could not be found after stopping.")
         return nil
     }
 
@@ -108,8 +115,10 @@ final class AudioRecordingService: NSObject, AVAudioRecorderDelegate {
                 lastRecordedDuration = recorder.currentTime
                 currentRecordingURL = recordedURL
                 recordingState = .finished(recordedURL)
+                AppLogger.recordingStopped(fileName: recordedURL.lastPathComponent, duration: recorder.currentTime)
             } else {
                 recordingState = .failed("Recording did not finish successfully.")
+                AppLogger.recordingFailed("Recording did not finish successfully.")
             }
 
             self.recorder = nil
@@ -121,6 +130,7 @@ final class AudioRecordingService: NSObject, AVAudioRecorderDelegate {
         Task { @MainActor in
             let message = error?.localizedDescription ?? "An unknown audio encoding error occurred."
             recordingState = .failed(message)
+            AppLogger.recordingFailed(message)
             self.recorder = nil
             recordingStartedAt = nil
         }

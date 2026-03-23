@@ -142,17 +142,24 @@ struct APIClient: APIClienting {
         do {
             return try jsonDecoder.decode(ResponseBody.self, from: data)
         } catch {
+            let endpoint = request.url?.path(percentEncoded: false) ?? request.url?.path ?? "unknown"
+            AppLogger.decodingFailed(endpoint: endpoint, statusCode: httpResponse.statusCode, error: error.localizedDescription)
             throw APIClientError.decodingFailed(statusCode: httpResponse.statusCode, underlyingError: error)
         }
     }
 
     func validate(response: URLResponse, data: Data) throws -> HTTPURLResponse {
         guard let httpResponse = response as? HTTPURLResponse else {
+            AppLogger.invalidResponse(endpoint: response.url?.path(percentEncoded: false) ?? response.url?.path ?? "unknown")
             throw APIClientError.invalidResponse
         }
 
         guard (200...299).contains(httpResponse.statusCode) else {
             let responseBody = String(data: data, encoding: .utf8)
+            AppLogger.requestFailed(
+                endpoint: httpResponse.url?.path(percentEncoded: false) ?? httpResponse.url?.path ?? "unknown",
+                statusCode: httpResponse.statusCode
+            )
             throw APIClientError.requestFailed(statusCode: httpResponse.statusCode, responseBody: responseBody)
         }
 

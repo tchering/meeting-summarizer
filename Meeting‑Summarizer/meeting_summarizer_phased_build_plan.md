@@ -519,6 +519,8 @@ Generate a clean JSON representation of the meeting and allow the user to share 
 Goal: Make the MVP stable.
 
 ### Step 7.1 — Add reusable error states
+**Status:** [x] Done
+
 **Objective:** Handle failures properly.
 
 **Cover errors for:**
@@ -538,6 +540,8 @@ Show clear user-friendly error messages and retry actions where appropriate.
 ```
 
 ### Step 7.2 — Add logging helpers
+**Status:** [x] Done
+
 **Objective:** Debug issues faster.
 
 **Deliverable:**
@@ -552,6 +556,8 @@ Keep logs privacy-aware.
 ```
 
 ### Step 7.3 — Add loading skeletons and empty states
+**Status:** [x] Done
+
 **Objective:** Improve UX.
 
 **Deliverable:**

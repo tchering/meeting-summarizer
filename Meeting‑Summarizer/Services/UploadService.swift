@@ -52,12 +52,14 @@ final class UploadService {
 
         guard let configuration, let apiClient else {
             state = .failure("Backend upload endpoint is not configured yet.")
+            AppLogger.uploadFailed("Backend upload endpoint is not configured yet.")
             return
         }
 
         do {
             isUploading = true
             state = .uploading(progress: 0)
+            AppLogger.uploadStarted(fileName: fileURL.lastPathComponent)
 
             let fileData = try Data(contentsOf: fileURL)
             let uploadFile = UploadFile(
@@ -77,8 +79,10 @@ final class UploadService {
 
             let receipt = try decodeUploadReceipt(from: data)
             state = .success(receipt)
+            AppLogger.uploadSucceeded(jobID: receipt.jobID)
         } catch {
             state = .failure(error.localizedDescription)
+            AppLogger.uploadFailed(error.localizedDescription)
         }
 
         isUploading = false

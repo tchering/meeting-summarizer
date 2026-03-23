@@ -48,10 +48,12 @@ final class MeetingPollingService {
     func poll(jobID: String) async -> BackendMeetingResult? {
         guard let configuration, let apiClient else {
             state = .failed("Polling is not configured yet.")
+            AppLogger.processingFailed(jobID: nil, message: "Polling is not configured yet.")
             return nil
         }
 
         state = .polling
+        AppLogger.processingPollingStarted(jobID: jobID)
 
         for _ in 0..<configuration.maxAttempts {
             do {
@@ -64,20 +66,24 @@ final class MeetingPollingService {
                 switch result.status {
                 case .completed:
                     state = .completed
+                    AppLogger.processingCompleted(jobID: jobID)
                     return result
                 case .failed:
                     state = .failed("Backend processing failed.")
+                    AppLogger.processingFailed(jobID: jobID, message: "Backend processing failed.")
                     return result
                 case .processing, .uploading, .recorded:
                     try? await Task.sleep(for: configuration.pollingInterval)
                 }
             } catch {
                 state = .failed(error.localizedDescription)
+                AppLogger.processingFailed(jobID: jobID, message: error.localizedDescription)
                 return nil
             }
         }
 
         state = .failed("Polling timed out before the backend finished processing.")
+        AppLogger.processingFailed(jobID: jobID, message: "Polling timed out before the backend finished processing.")
         return nil
     }
 }

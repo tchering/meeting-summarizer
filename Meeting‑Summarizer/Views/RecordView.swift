@@ -26,12 +26,10 @@ struct RecordView: View {
                     uploadCard
                 }
 
-                if viewModel.permissionStatus == .denied {
-                    deniedStateCard
-                }
-
-                if let errorMessage = viewModel.errorMessage {
-                    errorCard(message: errorMessage)
+                if let currentError = viewModel.currentError {
+                    AppErrorCard(error: currentError) { action in
+                        handleErrorAction(action)
+                    }
                 }
             }
             .padding(AppTheme.contentPadding)
@@ -203,18 +201,6 @@ struct RecordView: View {
         .liquidGlassCard()
     }
 
-    private var deniedStateCard: some View {
-        VStack(alignment: .leading, spacing: 10) {
-            Text("Microphone access is currently off for this app.")
-                .font(.subheadline)
-                .themeTitle()
-            Text("Open Settings and enable microphone access to continue recording on this device.")
-                .font(.subheadline)
-                .themeSecondaryText()
-        }
-        .liquidGlassCard()
-    }
-
     private var uploadCard: some View {
         VStack(alignment: .leading, spacing: 12) {
             HStack {
@@ -275,18 +261,6 @@ struct RecordView: View {
             .disabled(viewModel.savedRecordingURL == nil || isUploadInFlight)
             .opacity(isUploadInFlight ? 0.55 : 1)
             .liquidGlassButtonStyle()
-        }
-        .liquidGlassCard()
-    }
-
-    private func errorCard(message: String) -> some View {
-        VStack(alignment: .leading, spacing: 10) {
-            Text("Recording Error")
-                .font(.subheadline)
-                .themeTitle()
-            Text(message)
-                .font(.subheadline)
-                .themeSecondaryText()
         }
         .liquidGlassCard()
     }
@@ -484,6 +458,17 @@ struct RecordView: View {
         }
 
         openURL(settingsURL)
+    }
+
+    private func handleErrorAction(_ action: AppErrorAction) {
+        switch action {
+        case .openSettings:
+            openSettings()
+        case .retryRecording, .retryUpload, .retryProcessing:
+            Task {
+                await viewModel.performErrorAction(action)
+            }
+        }
     }
 }
 

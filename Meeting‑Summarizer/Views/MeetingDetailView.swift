@@ -159,6 +159,11 @@ struct MeetingDetailView: View {
                             .stroke(AppTheme.surfaceStroke, lineWidth: 1)
                     )
                     .themeSecondaryText()
+            } else if isAwaitingSummaryContent {
+                VStack(alignment: .leading, spacing: 12) {
+                    processingPlaceholderMessage("The summary will appear here once backend processing finishes.")
+                    SkeletonParagraph(widths: [280, 250, 300, 180])
+                }
             } else {
                 Text(nonEmpty(meeting.summary, fallback: "No summary available yet."))
                     .font(.body)
@@ -174,7 +179,12 @@ struct MeetingDetailView: View {
             icon: "checklist",
             subtitle: "Clear next steps"
         ) {
-            if meeting.actionItems.isEmpty {
+            if isAwaitingSummaryContent {
+                VStack(spacing: 12) {
+                    processingPlaceholderMessage("Suggested action items are still being prepared.")
+                    skeletonItemRows(count: 2)
+                }
+            } else if meeting.actionItems.isEmpty {
                 emptyState("No action items were extracted.")
             } else {
                 VStack(spacing: 12) {
@@ -192,7 +202,12 @@ struct MeetingDetailView: View {
             icon: "checkmark.seal",
             subtitle: "Confirmed outcomes"
         ) {
-            if meeting.decisions.isEmpty {
+            if isAwaitingSummaryContent {
+                VStack(spacing: 12) {
+                    processingPlaceholderMessage("Key decisions are still being extracted.")
+                    skeletonItemRows(count: 2)
+                }
+            } else if meeting.decisions.isEmpty {
                 emptyState("No decisions were captured.")
             } else {
                 VStack(spacing: 12) {
@@ -226,7 +241,12 @@ struct MeetingDetailView: View {
             icon: "questionmark.circle",
             subtitle: "Items needing follow-up"
         ) {
-            if meeting.openQuestions.isEmpty {
+            if isAwaitingSummaryContent {
+                VStack(spacing: 12) {
+                    processingPlaceholderMessage("Open questions will populate once the backend result is ready.")
+                    skeletonItemRows(count: 2)
+                }
+            } else if meeting.openQuestions.isEmpty {
                 emptyState("No open questions remain.")
             } else {
                 VStack(spacing: 12) {
@@ -250,11 +270,18 @@ struct MeetingDetailView: View {
             icon: "quote.bubble",
             subtitle: "Full reference"
         ) {
-            Text(nonEmpty(meeting.transcript, fallback: "No transcript available yet."))
-                .font(.body)
-                .lineSpacing(5)
-                .textSelection(.enabled)
-                .themeSecondaryText()
+            if isAwaitingTranscript {
+                VStack(alignment: .leading, spacing: 12) {
+                    processingPlaceholderMessage("Transcript text is still being prepared.")
+                    SkeletonParagraph(widths: [320, 300, 286, 268, 240, 294])
+                }
+            } else {
+                Text(nonEmpty(meeting.transcript, fallback: "No transcript available yet."))
+                    .font(.body)
+                    .lineSpacing(5)
+                    .textSelection(.enabled)
+                    .themeSecondaryText()
+            }
         }
     }
 
@@ -422,6 +449,33 @@ struct MeetingDetailView: View {
             )
     }
 
+    private func processingPlaceholderMessage(_ text: String) -> some View {
+        Text(text)
+            .font(.footnote)
+            .themeMutedText()
+    }
+
+    private func skeletonItemRows(count: Int) -> some View {
+        VStack(spacing: 12) {
+            ForEach(0..<count, id: \.self) { _ in
+                VStack(alignment: .leading, spacing: 8) {
+                    SkeletonBlock(width: 220, height: 14)
+                    SkeletonBlock(width: 170, height: 11)
+                }
+                .frame(maxWidth: .infinity, alignment: .leading)
+                .padding(14)
+                .background(
+                    RoundedRectangle(cornerRadius: 18, style: .continuous)
+                        .fill(AppTheme.elevatedSurfaceFill.opacity(0.6))
+                )
+                .overlay(
+                    RoundedRectangle(cornerRadius: 18, style: .continuous)
+                        .stroke(AppTheme.surfaceStroke.opacity(0.9), lineWidth: 1)
+                )
+            }
+        }
+    }
+
     private func editableField(title: String, text: Binding<String>, placeholder: String) -> some View {
         VStack(alignment: .leading, spacing: 6) {
             Text(title)
@@ -479,6 +533,16 @@ struct MeetingDetailView: View {
 
     private func nonEmpty(_ text: String, fallback: String) -> String {
         text.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty ? fallback : text
+    }
+
+    private var isAwaitingSummaryContent: Bool {
+        (meeting.processingStatus == .uploading || meeting.processingStatus == .processing)
+            && meeting.summary.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+    }
+
+    private var isAwaitingTranscript: Bool {
+        (meeting.processingStatus == .uploading || meeting.processingStatus == .processing)
+            && meeting.transcript.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
     }
 
     private func loadDraftsFromMeeting() {

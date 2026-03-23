@@ -12,7 +12,7 @@ final class RecordViewModel {
     private(set) var elapsedTime: TimeInterval = 0
     private(set) var savedRecordingURL: URL?
     private(set) var importedAudioURL: URL?
-    private(set) var errorMessage: String?
+    private(set) var currentError: AppErrorState?
     private(set) var uploadState: UploadState = .idle
     private(set) var pollingState: MeetingPollingState = .idle
 
@@ -25,6 +25,7 @@ final class RecordViewModel {
     private var recordingTimerTask: Task<Void, Never>?
     private var modelContext: ModelContext?
     private var activeMeeting: Meeting?
+    private var latestUploadReceipt: UploadReceipt?
 
     init() {
         self.permissionService = MicrophonePermissionService()
@@ -61,6 +62,7 @@ final class RecordViewModel {
 
     func refreshPermissionStatus() async {
         permissionStatus = permissionService.currentStatus()
+        syncPermissionErrorState()
         await prepareRecordingSessionIfNeeded()
         syncRecordingState()
     }
@@ -77,6 +79,7 @@ final class RecordViewModel {
         isRequestingPermission = true
         permissionStatus = await permissionService.requestPermission()
         isRequestingPermission = false
+        syncPermissionErrorState()
         await prepareRecordingSessionIfNeeded()
     }
 
@@ -91,7 +94,7 @@ final class RecordViewModel {
             savedRecordingURL = nil
             uploadState = .idle
             pollingState = .idle
-            errorMessage = nil
+            currentError = nil
             persistAudioMeeting(
                 from: importedURL,
                 title: importedMeetingTitle(for: importedURL),
@@ -102,20 +105,45 @@ final class RecordViewModel {
                 await uploadRecordedAudio()
             }
         } catch {
-            errorMessage = error.localizedDescription
+            currentError = .uploadFailed(error.localizedDescription)
         }
     }
 
     func setErrorMessage(_ message: String?) {
-        errorMessage = message
+        guard let message else {
+            currentError = nil
+            return
+        }
+
+        currentError = mapErrorState(for: message, fallback: .uploadFailed(message))
+    }
+
+    func performErrorAction(_ action: AppErrorAction) async {
+        switch action {
+        case .openSettings:
+            break
+        case .retryRecording:
+            await startRecording()
+        case .retryUpload:
+            await uploadRecordedAudio()
+        case .retryProcessing:
+            guard let latestUploadReceipt else {
+                currentError = .processingFailed("The backend job could not be resumed because no upload receipt is available.")
+                return
+            }
+
+            await pollForMeetingResult(using: latestUploadReceipt)
+        }
     }
 
     func uploadRecordedAudio() async {
         guard let audioFileURL = currentAudioFileURL else {
             uploadState = .failure("No audio file is available to upload.")
+            currentError = .uploadFailed("No audio file is available to upload.")
             return
         }
 
+        currentError = nil
         updateMeetingStatus(.uploading)
 
         await uploadService.uploadAudioFile(
@@ -130,10 +158,12 @@ final class RecordViewModel {
         case .uploading:
             updateMeetingStatus(.uploading)
         case .success(let receipt):
+            latestUploadReceipt = receipt
             updateMeetingStatus(.processing)
             await pollForMeetingResult(using: receipt)
         case .failure:
             updateMeetingStatus(.failed)
+            syncUploadErrorState()
         }
     }
 
@@ -153,17 +183,17 @@ final class RecordViewModel {
 
     private func startRecording() async {
         recordingState = .starting
-        errorMessage = nil
+        currentError = nil
         importedAudioURL = nil
         savedRecordingURL = nil
 
         do {
             try await recordingService.startRecording()
-            errorMessage = nil
+            currentError = nil
             syncRecordingState()
             startElapsedTimeUpdates()
         } catch {
-            errorMessage = error.localizedDescription
+            currentError = .recordingFailed(error.localizedDescription)
             syncRecordingState()
         }
     }
@@ -176,7 +206,7 @@ final class RecordViewModel {
         do {
             try await recordingService.prepareRecordingSession()
         } catch {
-            errorMessage = error.localizedDescription
+            currentError = .recordingFailed(error.localizedDescription)
         }
     }
 
@@ -222,28 +252,33 @@ final class RecordViewModel {
         case .idle:
             break
         case .starting:
-            errorMessage = nil
+            currentError = nil
             uploadState = .idle
         case .recording:
-            errorMessage = nil
+            currentError = nil
             uploadState = .idle
         case .finished(let url):
             savedRecordingURL = url
-            errorMessage = nil
+            currentError = nil
         case .failed(let message):
-            errorMessage = message
+            currentError = .recordingFailed(message)
         }
+
+        syncUploadErrorState()
+        syncPollingErrorState()
     }
 
     private func pollForMeetingResult(using receipt: UploadReceipt) async {
         guard let jobID = receipt.jobID else {
             pollingState = .failed("Upload succeeded, but no backend job identifier was returned.")
+            currentError = .invalidResponse("Upload succeeded, but the backend did not return a job identifier for processing.")
             return
         }
 
         guard let result = await pollingService.poll(jobID: jobID) else {
             pollingState = pollingService.state
             updateMeetingStatus(.failed)
+            syncPollingErrorState()
             return
         }
 
@@ -258,7 +293,7 @@ final class RecordViewModel {
         durationSeconds: Double = 0
     ) {
         guard let modelContext else {
-            errorMessage = "The audio file was saved, but the app could not store the meeting locally."
+            currentError = .localPersistenceFailure("The audio file was saved, but the app could not store the meeting locally.")
             return
         }
 
@@ -281,7 +316,7 @@ final class RecordViewModel {
             activeMeeting = meeting
         } catch {
             modelContext.delete(meeting)
-            errorMessage = "The audio file was saved, but the meeting entry could not be created."
+            currentError = .localPersistenceFailure("The audio file was saved, but the meeting entry could not be created.")
         }
     }
 
@@ -291,11 +326,12 @@ final class RecordViewModel {
         }
 
         activeMeeting.processingStatus = status
+        AppLogger.processingStateChanged(status.rawValue)
 
         do {
             try modelContext.save()
         } catch {
-            errorMessage = "The meeting status could not be updated."
+            currentError = .localPersistenceFailure("The meeting status could not be updated.")
         }
     }
 
@@ -310,8 +346,9 @@ final class RecordViewModel {
                 to: activeMeeting,
                 in: modelContext
             )
+            currentError = nil
         } catch {
-            errorMessage = "The processed meeting result could not be saved locally."
+            currentError = .invalidResponse("The processed meeting result could not be saved locally.")
         }
     }
 
@@ -333,5 +370,51 @@ final class RecordViewModel {
 
     private var currentAudioFileURL: URL? {
         savedRecordingURL ?? importedAudioURL
+    }
+
+    private func syncPermissionErrorState() {
+        if permissionStatus == .denied {
+            currentError = .microphoneDenied()
+        } else if currentError?.kind == .microphoneDenied {
+            currentError = nil
+        }
+    }
+
+    private func syncUploadErrorState() {
+        guard case .failure(let message) = uploadState else {
+            return
+        }
+
+        currentError = mapErrorState(for: message, fallback: .uploadFailed(message))
+    }
+
+    private func syncPollingErrorState() {
+        guard case .failed(let message) = pollingState else {
+            return
+        }
+
+        currentError = mapErrorState(for: message, fallback: .processingFailed(message))
+    }
+
+    private func mapErrorState(for message: String, fallback: AppErrorState) -> AppErrorState {
+        let normalized = message.lowercased()
+
+        if normalized.contains("denied") || normalized.contains("microphone") {
+            return .microphoneDenied()
+        }
+
+        if normalized.contains("invalid response")
+            || normalized.contains("decode")
+            || normalized.contains("decoding")
+            || normalized.contains("job identifier")
+        {
+            return .invalidResponse(message)
+        }
+
+        if normalized.contains("processing") || normalized.contains("poll") || normalized.contains("backend") {
+            return .processingFailed(message)
+        }
+
+        return fallback
     }
 }

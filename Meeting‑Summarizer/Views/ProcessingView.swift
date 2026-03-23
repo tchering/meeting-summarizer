@@ -4,6 +4,12 @@ import SwiftData
 struct ProcessingView: View {
     @Query(sort: \Meeting.updatedAt, order: .reverse) private var meetings: [Meeting]
 
+    private var activeMeetings: [Meeting] {
+        meetings.filter { meeting in
+            meeting.processingStatus == .uploading || meeting.processingStatus == .processing
+        }
+    }
+
     var body: some View {
         ScrollView {
             VStack(alignment: .leading, spacing: 16) {
@@ -13,22 +19,20 @@ struct ProcessingView: View {
                     .themeTitle()
 
                 if meetings.isEmpty {
-                    VStack(spacing: 14) {
-                        ProgressView()
-                            .controlSize(.large)
-                            .tint(AppTheme.accent)
-
-                        Text("No meetings yet")
-                            .font(.title3)
-                            .fontWeight(.semibold)
-                            .themeTitle()
-
-                        Text("Recorded meetings will appear here as they move through upload and processing states.")
-                            .multilineTextAlignment(.center)
-                            .themeSecondaryText()
-                    }
-                    .liquidGlassCard()
+                    EmptyStateCard(
+                        title: "No Meetings In Flight",
+                        message: "Recorded meetings will appear here as they move through upload and processing states.",
+                        systemImage: "waveform.and.magnifyingglass"
+                    )
                 } else {
+                    if activeMeetings.isEmpty {
+                        EmptyStateCard(
+                            title: "Nothing Is Processing Right Now",
+                            message: "You can still review completed meetings in History while new uploads wait to start.",
+                            systemImage: "checkmark.circle"
+                        )
+                    }
+
                     ForEach(meetings) { meeting in
                         VStack(alignment: .leading, spacing: 12) {
                             HStack {
@@ -54,6 +58,9 @@ struct ProcessingView: View {
                             if meeting.processingStatus == .uploading || meeting.processingStatus == .processing {
                                 ProgressView()
                                     .tint(meeting.processingStatus.accentColor)
+
+                                SkeletonParagraph(widths: [230, 190, 160])
+                                    .padding(.top, 4)
                             }
 
                             Text(meeting.processingStatus.detailMessage)
