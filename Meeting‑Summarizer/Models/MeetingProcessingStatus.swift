@@ -1,4 +1,4 @@
-import SwiftUI
+import Foundation
 
 enum MeetingProcessingStatus: String, CaseIterable, Codable, Sendable {
     case recorded
@@ -19,21 +19,6 @@ enum MeetingProcessingStatus: String, CaseIterable, Codable, Sendable {
             return "Completed"
         case .failed:
             return "Failed"
-        }
-    }
-
-    var accentColor: Color {
-        switch self {
-        case .recorded:
-            return AppTheme.accent
-        case .uploading:
-            return Color.orange
-        case .processing:
-            return Color.yellow
-        case .completed:
-            return Color.green
-        case .failed:
-            return Color.red
         }
     }
 

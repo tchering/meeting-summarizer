@@ -36,13 +36,18 @@ struct UploadFile: Sendable {
 
 @MainActor
 protocol APIClienting {
-    func post<RequestBody: Encodable & Sendable, ResponseBody: Decodable & Sendable>(
+    func get<ResponseBody: Decodable>(
+        _ endpoint: APIEndpoint,
+        responseType: ResponseBody.Type
+    ) async throws -> ResponseBody
+
+    func post<RequestBody: Encodable, ResponseBody: Decodable>(
         _ endpoint: APIEndpoint,
         body: RequestBody,
         responseType: ResponseBody.Type
     ) async throws -> ResponseBody
 
-    func upload<ResponseBody: Decodable & Sendable>(
+    func upload<ResponseBody: Decodable>(
         _ endpoint: APIEndpoint,
         file: UploadFile,
         fields: [String: String],
@@ -69,7 +74,15 @@ struct APIClient: APIClienting {
         self.jsonDecoder = jsonDecoder
     }
 
-    func post<RequestBody: Encodable & Sendable, ResponseBody: Decodable & Sendable>(
+    func get<ResponseBody: Decodable>(
+        _ endpoint: APIEndpoint,
+        responseType: ResponseBody.Type
+    ) async throws -> ResponseBody {
+        let request = try makeRequest(for: endpoint)
+        return try await send(request, responseType: responseType)
+    }
+
+    func post<RequestBody: Encodable, ResponseBody: Decodable>(
         _ endpoint: APIEndpoint,
         body: RequestBody,
         responseType: ResponseBody.Type
@@ -81,7 +94,7 @@ struct APIClient: APIClienting {
         return try await send(request, responseType: responseType)
     }
 
-    func upload<ResponseBody: Decodable & Sendable>(
+    func upload<ResponseBody: Decodable>(
         _ endpoint: APIEndpoint,
         file: UploadFile,
         fields: [String: String] = [:],
@@ -119,7 +132,7 @@ struct APIClient: APIClienting {
         return request
     }
 
-    func send<ResponseBody: Decodable & Sendable>(
+    func send<ResponseBody: Decodable>(
         _ request: URLRequest,
         responseType: ResponseBody.Type
     ) async throws -> ResponseBody {

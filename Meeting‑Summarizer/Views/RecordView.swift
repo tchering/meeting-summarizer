@@ -192,10 +192,28 @@ struct RecordView: View {
                     Text("Uploading \(Int(progress * 100))%")
                         .themeSecondaryText()
                 }
-            case .success(let message):
-                Text(message ?? "Upload completed successfully.")
+            case .success(let receipt):
+                Text(receipt.message ?? "Upload completed successfully.")
                     .themeSecondaryText()
             case .failure(let message):
+                Text(message)
+                    .themeSecondaryText()
+            }
+
+            switch viewModel.pollingState {
+            case .idle:
+                EmptyView()
+            case .polling:
+                VStack(alignment: .leading, spacing: 8) {
+                    ProgressView()
+                        .tint(AppTheme.accentStrong)
+                    Text("Polling backend for completed summary...")
+                        .themeSecondaryText()
+                }
+            case .completed:
+                Text("Backend summary is ready and the meeting was updated locally.")
+                    .themeSecondaryText()
+            case .failed(let message):
                 Text(message)
                     .themeSecondaryText()
             }

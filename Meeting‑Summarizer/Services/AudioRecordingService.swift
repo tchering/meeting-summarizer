@@ -17,12 +17,24 @@ final class AudioRecordingService: NSObject, AVAudioRecorderDelegate {
 
     private var recorder: AVAudioRecorder?
     private let fileManager = FileManager.default
+    private var isSessionPrepared = false
+
+    @MainActor
+    func prepareRecordingSession() throws {
+        guard !isSessionPrepared else {
+            return
+        }
+
+        let audioSession = AVAudioSession.sharedInstance()
+        try audioSession.setCategory(.playAndRecord, mode: .default, options: [.defaultToSpeaker])
+        try audioSession.setPreferredIOBufferDuration(0.005)
+        try audioSession.setActive(true)
+        isSessionPrepared = true
+    }
 
     @MainActor
     func startRecording() throws {
-        let audioSession = AVAudioSession.sharedInstance()
-        try audioSession.setCategory(.playAndRecord, mode: .default, options: [.defaultToSpeaker])
-        try audioSession.setActive(true)
+        try prepareRecordingSession()
 
         let recordingURL = try makeRecordingURL()
         let recorder = try AVAudioRecorder(url: recordingURL, settings: recordingSettings)

@@ -4,7 +4,7 @@ import Observation
 enum UploadState: Equatable {
     case idle
     case uploading(progress: Double)
-    case success(message: String?)
+    case success(UploadReceipt)
     case failure(String)
 }
 
@@ -29,6 +29,7 @@ final class UploadService {
     private let apiClient: APIClient?
     private let configuration: UploadServiceConfiguration?
     private let session: URLSession
+    private let jsonDecoder = JSONDecoder()
 
     init(
         configuration: UploadServiceConfiguration? = nil,
@@ -74,8 +75,8 @@ final class UploadService {
             let (data, response) = try await performUpload(request: request, body: body)
             _ = try apiClient.validate(response: response, data: data)
 
-            let message = String(data: data, encoding: .utf8)
-            state = .success(message: message?.isEmpty == true ? nil : message)
+            let receipt = try decodeUploadReceipt(from: data)
+            state = .success(receipt)
         } catch {
             state = .failure(error.localizedDescription)
         }
@@ -108,6 +109,15 @@ final class UploadService {
 
             task.resume()
         }
+    }
+
+    private func decodeUploadReceipt(from data: Data) throws -> UploadReceipt {
+        if let decoded = try? jsonDecoder.decode(UploadReceipt.self, from: data) {
+            return decoded
+        }
+
+        let message = String(data: data, encoding: .utf8)
+        return UploadReceipt(jobID: nil, message: message?.isEmpty == true ? nil : message, status: nil)
     }
 }
 

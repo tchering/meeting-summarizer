@@ -12,10 +12,12 @@ final class RecordViewModel {
     private(set) var savedRecordingURL: URL?
     private(set) var errorMessage: String?
     private(set) var uploadState: UploadState = .idle
+    private(set) var pollingState: MeetingPollingState = .idle
 
     private let permissionService: MicrophonePermissionServicing
     private let recordingService: AudioRecordingService
     private let uploadService: UploadService
+    private let pollingService: MeetingPollingService
     private var recordingTimerTask: Task<Void, Never>?
     private var modelContext: ModelContext?
     private var activeMeeting: Meeting?
@@ -24,26 +26,32 @@ final class RecordViewModel {
         self.permissionService = MicrophonePermissionService()
         self.recordingService = AudioRecordingService()
         self.uploadService = UploadService()
+        self.pollingService = MeetingPollingService()
         self.permissionStatus = permissionService.currentStatus()
         self.recordingState = recordingService.recordingState
         self.uploadState = uploadService.state
+        self.pollingState = pollingService.state
     }
 
     init(
         permissionService: MicrophonePermissionServicing,
         recordingService: AudioRecordingService,
-        uploadService: UploadService
+        uploadService: UploadService,
+        pollingService: MeetingPollingService
     ) {
         self.permissionService = permissionService
         self.recordingService = recordingService
         self.uploadService = uploadService
+        self.pollingService = pollingService
         self.permissionStatus = permissionService.currentStatus()
         self.recordingState = recordingService.recordingState
         self.uploadState = uploadService.state
+        self.pollingState = pollingService.state
     }
 
     func refreshPermissionStatus() {
         permissionStatus = permissionService.currentStatus()
+        prepareRecordingSessionIfNeeded()
         syncRecordingState()
     }
 
@@ -59,6 +67,7 @@ final class RecordViewModel {
         isRequestingPermission = true
         permissionStatus = await permissionService.requestPermission()
         isRequestingPermission = false
+        prepareRecordingSessionIfNeeded()
     }
 
     func uploadRecordedAudio() async {
@@ -80,8 +89,9 @@ final class RecordViewModel {
             break
         case .uploading:
             updateMeetingStatus(.uploading)
-        case .success:
+        case .success(let receipt):
             updateMeetingStatus(.processing)
+            await pollForMeetingResult(using: receipt)
         case .failure:
             updateMeetingStatus(.failed)
         }
@@ -111,6 +121,18 @@ final class RecordViewModel {
         } catch {
             errorMessage = error.localizedDescription
             syncRecordingState()
+        }
+    }
+
+    private func prepareRecordingSessionIfNeeded() {
+        guard permissionStatus == .granted else {
+            return
+        }
+
+        do {
+            try recordingService.prepareRecordingSession()
+        } catch {
+            errorMessage = error.localizedDescription
         }
     }
 
@@ -145,6 +167,7 @@ final class RecordViewModel {
         recordingState = recordingService.recordingState
         elapsedTime = recordingService.elapsedTime
         uploadState = uploadService.state
+        pollingState = pollingService.state
 
         switch recordingState {
         case .idle:
@@ -158,6 +181,22 @@ final class RecordViewModel {
         case .failed(let message):
             errorMessage = message
         }
+    }
+
+    private func pollForMeetingResult(using receipt: UploadReceipt) async {
+        guard let jobID = receipt.jobID else {
+            pollingState = .failed("Upload succeeded, but no backend job identifier was returned.")
+            return
+        }
+
+        guard let result = await pollingService.poll(jobID: jobID) else {
+            pollingState = pollingService.state
+            updateMeetingStatus(.failed)
+            return
+        }
+
+        pollingState = pollingService.state
+        applyBackendResult(result)
     }
 
     private func persistRecordedMeeting(from recordingURL: URL) {
@@ -200,6 +239,56 @@ final class RecordViewModel {
             try modelContext.save()
         } catch {
             errorMessage = "The meeting status could not be updated."
+        }
+    }
+
+    private func applyBackendResult(_ result: BackendMeetingResult) {
+        guard let modelContext, let activeMeeting else {
+            return
+        }
+
+        activeMeeting.transcript = result.transcript ?? activeMeeting.transcript
+        activeMeeting.summary = result.summary ?? activeMeeting.summary
+        activeMeeting.actionItems.removeAll()
+        activeMeeting.decisions.removeAll()
+        activeMeeting.openQuestions.removeAll()
+
+        activeMeeting.actionItems = result.actionItems.map { item in
+            ActionItem(
+                task: item.task,
+                owner: item.owner ?? "",
+                deadlineText: item.deadlineText ?? "",
+                confidence: item.confidence ?? 0,
+                sourceSegment: item.sourceSegment ?? "",
+                isCompleted: false,
+                meeting: activeMeeting
+            )
+        }
+
+        activeMeeting.decisions = result.decisions.map { item in
+            DecisionItem(
+                text: item.text,
+                confidence: item.confidence ?? 0,
+                sourceSegment: item.sourceSegment ?? "",
+                meeting: activeMeeting
+            )
+        }
+
+        activeMeeting.openQuestions = result.openQuestions.map { item in
+            OpenQuestionItem(
+                text: item.text,
+                confidence: item.confidence ?? 0,
+                sourceSegment: item.sourceSegment ?? "",
+                meeting: activeMeeting
+            )
+        }
+
+        activeMeeting.processingStatus = result.status
+
+        do {
+            try modelContext.save()
+        } catch {
+            errorMessage = "The processed meeting result could not be saved locally."
         }
     }
 
