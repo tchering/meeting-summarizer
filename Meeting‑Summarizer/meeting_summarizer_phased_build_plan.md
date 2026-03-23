@@ -176,6 +176,8 @@ Use simple placeholder transcript and summary text.
 Goal: Record audio inside the app and save the file locally.
 
 ### Step 2.1 — Add microphone permission flow
+**Status:** [x] Done
+
 **Objective:** Ask for mic access correctly.
 
 **Requirements:**
