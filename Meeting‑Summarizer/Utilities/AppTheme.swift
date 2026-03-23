@@ -1,19 +1,21 @@
 import SwiftUI
 
 enum AppTheme {
-    static let backgroundTop = Color(red: 0.03, green: 0.06, blue: 0.12)
-    static let backgroundMiddle = Color(red: 0.06, green: 0.16, blue: 0.26)
-    static let backgroundBottom = Color(red: 0.10, green: 0.34, blue: 0.42)
+    static let backgroundTop = Color(red: 0.02, green: 0.05, blue: 0.10)
+    static let backgroundMiddle = Color(red: 0.05, green: 0.14, blue: 0.24)
+    static let backgroundBottom = Color(red: 0.07, green: 0.25, blue: 0.34)
 
-    static let glowPrimary = Color(red: 0.24, green: 0.82, blue: 0.87)
-    static let glowSecondary = Color(red: 0.49, green: 0.64, blue: 0.97)
+    static let glowPrimary = Color(red: 0.10, green: 0.62, blue: 0.78)
+    static let glowSecondary = Color(red: 0.28, green: 0.42, blue: 0.82)
 
-    static let surfaceFill = Color.white.opacity(0.10)
-    static let surfaceStroke = Color.white.opacity(0.18)
+    static let surfaceFill = Color(red: 0.08, green: 0.14, blue: 0.22).opacity(0.78)
+    static let elevatedSurfaceFill = Color(red: 0.11, green: 0.18, blue: 0.27).opacity(0.84)
+    static let surfaceStroke = Color.white.opacity(0.14)
     static let primaryText = Color.white
-    static let secondaryText = Color.white.opacity(0.72)
-    static let accent = Color(red: 0.53, green: 0.86, blue: 0.96)
-    static let accentStrong = Color(red: 0.31, green: 0.71, blue: 0.96)
+    static let secondaryText = Color.white.opacity(0.82)
+    static let mutedText = Color.white.opacity(0.60)
+    static let accent = Color(red: 0.54, green: 0.88, blue: 0.97)
+    static let accentStrong = Color(red: 0.28, green: 0.72, blue: 0.96)
 
     static let cornerRadius: CGFloat = 24
     static let contentPadding: CGFloat = 20
@@ -43,7 +45,7 @@ struct AppScreenBackground: View {
                 .offset(x: -130, y: 260)
 
             LinearGradient(
-                colors: [.clear, Color.black.opacity(0.18)],
+                colors: [.clear, Color.black.opacity(0.28)],
                 startPoint: .top,
                 endPoint: .bottom
             )
@@ -66,6 +68,13 @@ struct ThemeSecondaryTextModifier: ViewModifier {
     }
 }
 
+struct ThemeMutedTextModifier: ViewModifier {
+    func body(content: Content) -> some View {
+        content
+            .foregroundStyle(AppTheme.mutedText)
+    }
+}
+
 extension View {
     func appScreenBackground() -> some View {
         background(AppScreenBackground())
@@ -77,5 +86,9 @@ extension View {
 
     func themeSecondaryText() -> some View {
         modifier(ThemeSecondaryTextModifier())
+    }
+
+    func themeMutedText() -> some View {
+        modifier(ThemeMutedTextModifier())
     }
 }

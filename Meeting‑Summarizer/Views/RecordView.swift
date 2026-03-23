@@ -35,7 +35,7 @@ struct RecordView: View {
         .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
         .padding(AppTheme.contentPadding)
         .appScreenBackground()
-        .navigationTitle("Record")
+        .navigationBarTitleDisplayMode(.inline)
     }
 }
 

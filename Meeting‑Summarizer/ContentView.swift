@@ -24,6 +24,7 @@ struct ContentView: View {
                 }
         }
         .tint(AppTheme.accentStrong)
+        .preferredColorScheme(.dark)
         .toolbarColorScheme(.dark, for: .tabBar, .navigationBar)
         .appScreenBackground()
         .task {

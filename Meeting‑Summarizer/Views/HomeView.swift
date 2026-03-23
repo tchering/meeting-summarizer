@@ -11,7 +11,7 @@ struct HomeView: View {
                     VStack(alignment: .leading, spacing: 8) {
                         Text("Home")
                             .font(.system(size: 18, weight: .semibold))
-                            .themeSecondaryText()
+                            .themeMutedText()
                         Text("Meeting Summarizer")
                             .font(.largeTitle)
                             .fontWeight(.bold)
@@ -75,9 +75,18 @@ struct HomeView: View {
                         } label: {
                             Image(systemName: "sparkles")
                                 .foregroundStyle(AppTheme.primaryText)
+                                .font(.headline)
                                 .padding(10)
                         }
-                        .liquidGlassCard()
+                        .padding(2)
+                        .background(
+                            Circle()
+                                .fill(AppTheme.elevatedSurfaceFill)
+                        )
+                        .overlay(
+                            Circle()
+                                .stroke(AppTheme.surfaceStroke, lineWidth: 1)
+                        )
                     }
                 }
             }

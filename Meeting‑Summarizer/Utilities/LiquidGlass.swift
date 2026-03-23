@@ -7,6 +7,7 @@ struct LiquidGlassCardModifier: ViewModifier {
             .frame(maxWidth: .infinity, alignment: .leading)
             .background(cardBackground)
             .overlay(cardStroke)
+            .shadow(color: Color.black.opacity(0.18), radius: 18, y: 10)
     }
 
     @ViewBuilder
@@ -14,14 +15,17 @@ struct LiquidGlassCardModifier: ViewModifier {
         if #available(iOS 26.0, macOS 26.0, *) {
             RoundedRectangle(cornerRadius: 24, style: .continuous)
                 .fill(.clear)
-                .glassEffect(.regular.tint(Color.white.opacity(0.06)).interactive(), in: .rect(cornerRadius: AppTheme.cornerRadius))
-        } else {
-            RoundedRectangle(cornerRadius: AppTheme.cornerRadius, style: .continuous)
-                .fill(.ultraThinMaterial)
-                .overlay(
+                .glassEffect(
+                    .regular.tint(AppTheme.accent.opacity(0.08)).interactive(),
+                    in: .rect(cornerRadius: AppTheme.cornerRadius)
+                )
+                .background(
                     RoundedRectangle(cornerRadius: AppTheme.cornerRadius, style: .continuous)
                         .fill(AppTheme.surfaceFill)
                 )
+        } else {
+            RoundedRectangle(cornerRadius: AppTheme.cornerRadius, style: .continuous)
+                .fill(AppTheme.surfaceFill)
         }
     }
 
@@ -42,8 +46,9 @@ struct LiquidGlassButtonModifier: ViewModifier {
             .background(buttonBackground)
             .overlay(
                 RoundedRectangle(cornerRadius: 18, style: .continuous)
-                    .stroke(Color.white.opacity(0.18), lineWidth: 1)
+                    .stroke(Color.white.opacity(0.16), lineWidth: 1)
             )
+            .shadow(color: Color.black.opacity(0.16), radius: 12, y: 8)
     }
 
     @ViewBuilder
@@ -51,10 +56,14 @@ struct LiquidGlassButtonModifier: ViewModifier {
         if #available(iOS 26.0, macOS 26.0, *) {
             RoundedRectangle(cornerRadius: 18, style: .continuous)
                 .fill(.clear)
-                .glassEffect(.regular.tint(AppTheme.accent.opacity(0.14)).interactive(), in: .rect(cornerRadius: 18))
+                .glassEffect(.regular.tint(AppTheme.accent.opacity(0.12)).interactive(), in: .rect(cornerRadius: 18))
+                .background(
+                    RoundedRectangle(cornerRadius: 18, style: .continuous)
+                        .fill(AppTheme.elevatedSurfaceFill)
+                )
         } else {
             RoundedRectangle(cornerRadius: 18, style: .continuous)
-                .fill(AppTheme.surfaceFill)
+                .fill(AppTheme.elevatedSurfaceFill)
         }
     }
 }
